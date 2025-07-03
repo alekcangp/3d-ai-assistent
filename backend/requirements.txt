@@ -3,4 +3,4 @@ uvicorn
 python-dotenv
 iointel
 fastmcp
-pydantic
+pydantic 
