@@ -3,7 +3,6 @@ import type { PersonalityConfig } from '../types'
 // IOIntel integration - This would be replaced with actual IOIntel library
 class IOIntelWrapper {
   private initialized = false
-  private model: any = null
 
   async initialize() {
     if (this.initialized) return
@@ -37,10 +36,6 @@ class IOIntelWrapper {
       throw new Error('IOIntel not initialized')
     }
 
-    // Create personality-aware prompt
-    const personalityPrompt = this.createPersonalityPrompt(personality)
-    const fullPrompt = `${personalityPrompt}\n\nUser: ${prompt}\nAssistant:`
-
     try {
       // In a real implementation, this would be:
       // const response = await this.model.generate(fullPrompt, {
@@ -58,29 +53,9 @@ class IOIntelWrapper {
     }
   }
 
-  private createPersonalityPrompt(personality: PersonalityConfig): string {
-    const traits = []
-    
-    if (personality.friendliness > 0.7) traits.push('very friendly and warm')
-    else if (personality.friendliness < 0.3) traits.push('more reserved and formal')
-    
-    if (personality.humor > 0.7) traits.push('enjoys using humor and wit')
-    if (personality.creativity > 0.7) traits.push('highly creative and imaginative')
-    if (personality.curiosity > 0.7) traits.push('very curious and asks thoughtful questions')
-    if (personality.empathy > 0.7) traits.push('highly empathetic and understanding')
-    
-    const formalityLevel = personality.formality > 0.7 ? 'formal' : 
-                          personality.formality < 0.3 ? 'casual and conversational' : 'balanced'
-
-    return `You are an AI assistant with the following personality traits: ${traits.join(', ')}. 
-Your communication style is ${formalityLevel}. 
-Your emotional stability is ${Math.round(personality.emotional_stability * 100)}%.
-Always respond in character based on these traits.`
-  }
-
   private simulatePersonalityResponse(prompt: string, personality: PersonalityConfig): string {
     // This is a simplified simulation - in reality, IOIntel would handle this
-    const responses = []
+    // Remove unused variable 'responses'
     
     // Base response variations
     const baseResponses = [
@@ -129,18 +104,7 @@ export function useAI() {
     await ioIntel.initialize()
   }
 
-  const processMessage = async (message: string, personality: PersonalityConfig): Promise<string> => {
-    try {
-      const response = await ioIntel.generateResponse(message, personality)
-      return response
-    } catch (error) {
-      console.error('Error processing message:', error)
-      return "I apologize, but I'm having trouble processing your request right now. Please try again."
-    }
-  }
-
   return {
-    initializeAI,
-    processMessage
+    initializeAI
   }
 }

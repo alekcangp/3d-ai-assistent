@@ -1,10 +1,12 @@
 import { ref } from 'vue'
 
-export const speechAmplitude = ref(0)
+declare var SpeechRecognition: any;
+
+export const speechAmplitude = ref<number>(0)
 export const isListening = ref(false)
 
 export function useSpeech() {
-  let recognition: SpeechRecognition | null = null
+  let recognition: any = null
   let synthesis: SpeechSynthesis | null = null
 
   const initializeSpeech = () => {
@@ -36,7 +38,7 @@ export function useSpeech() {
     recognition.onresult = null
     recognition.onerror = null
     recognition.onend = null
-    recognition.onresult = (event) => {
+    recognition.onresult = (event: any) => {
       const transcript = event.results[0][0].transcript
       callback(transcript)
     }
@@ -113,7 +115,7 @@ export function useSpeech() {
     }
 
     if (onBoundary) {
-      utterance.onboundary = (event) => {
+      utterance.onboundary = () => {
         onBoundary()
       }
     }
@@ -125,8 +127,6 @@ export function useSpeech() {
           const analyser = audioCtx.createAnalyser()
           analyser.fftSize = 2048
           const dataArray = new Uint8Array(analyser.fftSize)
-          let source: MediaStreamAudioSourceNode | null = null
-          let mediaStream: MediaStream | null = null
           let animationId: number | null = null
 
           // Create a dummy oscillator to keep the context alive (Safari fix)
@@ -152,21 +152,20 @@ export function useSpeech() {
           }
 
           // Start amplitude updates
-          speechAmplitude.value = 0.5 // fallback value
+          speechAmplitude.value = 0.3
           animationId = requestAnimationFrame(updateAmplitude)
 
           // When speech ends, stop updates
           const cleanup = () => {
             if (animationId) cancelAnimationFrame(animationId)
             speechAmplitude.value = 0
-            if (mediaStream) (mediaStream as MediaStream).getTracks().forEach((track: MediaStreamTrack) => track.stop())
             if (audioCtx && audioCtx.state !== 'closed') audioCtx.close()
           }
-          window.speechSynthesis.addEventListener('end', cleanup, { once: true })
+          (window as any).speechSynthesis.addEventListener('end', cleanup, { once: true })
         } else {
-          // Fallback: set amplitude to 0.5 while speaking
-          speechAmplitude.value = 0.5
-          window.speechSynthesis.addEventListener('end', () => { speechAmplitude.value = 0 }, { once: true })
+          // Fallback: set amplitude to 0.3 while speaking
+          speechAmplitude.value = 0.3;
+          (window as any).speechSynthesis.addEventListener('end', () => { speechAmplitude.value = 0 }, { once: true })
         }
         resolve()
       }
@@ -174,7 +173,9 @@ export function useSpeech() {
         console.error('Speech synthesis error:', event)
         reject(event)
       }
-      synthesis.speak(utterance)
+      if (synthesis) {
+        synthesis.speak(utterance)
+      }
     })
   }
 

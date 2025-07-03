@@ -15,15 +15,15 @@
           <h3>AI Model</h3>
           <div class="control-group">
             <label for="model-select">Model</label>
-            <select id="model-select" v-model="localPersonalityConfig.model" @change="updatePersonality" :disabled="modelLoading">
+            <select id="model-select" :value="selectedModel" @change="e => emit('updateModel', (e.target as HTMLSelectElement)?.value)" :disabled="modelLoading">
               <option v-for="model in modelList" :key="model.id" :value="model.id">
                 {{ model.name }}
               </option>
             </select>
             <div v-if="modelLoading" class="model-loading">Loading models...</div>
             <div v-if="modelError" class="model-error">{{ modelError }}</div>
-            <div v-if="localPersonalityConfig.model">
-              <small>{{ modelList.find(m => m.id === localPersonalityConfig.model)?.description }}</small>
+            <div v-if="selectedModel">
+              <small>{{ modelList.find(m => m.id === selectedModel)?.description }}</small>
             </div>
           </div>
         </div>
@@ -44,7 +44,7 @@
 
           <div class="control-group">
             <label for="lang-select">Language</label>
-            <select id="lang-select" v-model="localPersonalityConfig.lang" @change="updatePersonality">
+            <select id="lang-select" :value="selectedLang" @change="e => emit('updateLang', (e.target as HTMLSelectElement)?.value)">
               <option value="system">System Default</option>
               <option value="en">English</option>
               <option value="zh">Chinese (中文)</option>
@@ -246,6 +246,8 @@ const props = defineProps<{
   avatarConfig: AvatarConfig
   personalityConfig: PersonalityConfig
   selectedMcpServer: string | null
+  selectedLang: string
+  selectedModel: string
 }>()
 
 // Defensive runtime checks
@@ -260,6 +262,8 @@ const emit = defineEmits<{
   updateAvatar: [config: Partial<AvatarConfig>]
   updatePersonality: [config: Partial<PersonalityConfig>]
   updateMcpServer: [server: string | null]
+  updateLang: [lang: string]
+  updateModel: [model: string]
   close: []
 }>()
 
@@ -329,60 +333,105 @@ const updateDomainKnowledge = () => {
   updatePersonality()
 }
 
-const updateAvatar = () => {
-  emit('updateAvatar', localAvatarConfig.value)
-}
-
 const updatePersonality = () => {
   emit('updatePersonality', localPersonalityConfig.value)
 }
 
 const updateMcpServer = () => {
-  emit('updateMcpServer', selectedMcp.value)
+  emit('updateMcpServer', selectedMcp.value === null || selectedMcp.value === '' ? null : selectedMcp.value)
 }
 
 const applyPreset = (presetName: string) => {
-  const presets: { [key: string]: PersonalityConfig } = {
+  const presets: { [key: string]: Omit<PersonalityConfig, 'model' | 'lang'> } = {
     friendly: {
+      name: 'Friendly AI',
+      age: 25,
+      role: 'Companion',
+      style: 'Casual',
+      bio: 'A helpful and friendly assistant.',
       emotional_stability: 0.8,
-      friendliness: 0.9,
-      creativity: 0.6,
-      curiosity: 0.7,
-      formality: 0.2,
+      friendliness: 1.0,
+      creativity: 0.7,
+      curiosity: 0.8,
+      formality: 0.3,
       empathy: 0.9,
-      humor: 0.8
+      humor: 0.7,
+      domain_knowledge: ['general'],
+      quirks: 'Loves puns',
+      lore: 'Created to make people smile.',
+      personality: 'Warm and approachable',
+      conversation_style: 'Informal',
+      description: 'Always ready to help.'
     },
     professional: {
+      name: 'Professional AI',
+      age: 35,
+      role: 'Advisor',
+      style: 'Formal',
+      bio: 'An expert in business and productivity.',
       emotional_stability: 0.9,
-      friendliness: 0.6,
-      creativity: 0.4,
-      curiosity: 0.5,
+      friendliness: 0.7,
+      creativity: 0.6,
+      curiosity: 0.7,
       formality: 0.9,
       empathy: 0.6,
-      humor: 0.3
+      humor: 0.3,
+      domain_knowledge: ['business', 'productivity'],
+      quirks: 'Always on time',
+      lore: 'Trained by top consultants.',
+      personality: 'Efficient and direct',
+      conversation_style: 'Formal',
+      description: 'Focused on results.'
     },
     creative: {
+      name: 'Creative AI',
+      age: 28,
+      role: 'Idea Generator',
+      style: 'Artistic',
+      bio: 'A source of inspiration and new ideas.',
       emotional_stability: 0.6,
-      friendliness: 0.7,
-      creativity: 0.95,
+      friendliness: 0.8,
+      creativity: 1.0,
       curiosity: 0.9,
-      formality: 0.1,
-      empathy: 0.8,
-      humor: 0.9
+      formality: 0.2,
+      empathy: 0.7,
+      humor: 0.8,
+      domain_knowledge: ['art', 'music', 'writing'],
+      quirks: 'Speaks in metaphors',
+      lore: 'Inspired by famous artists.',
+      personality: 'Imaginative and playful',
+      conversation_style: 'Expressive',
+      description: 'Brings color to every conversation.'
     },
     analytical: {
-      emotional_stability: 0.85,
-      friendliness: 0.4,
-      creativity: 0.3,
-      curiosity: 0.95,
-      formality: 0.7,
+      name: 'Analytical AI',
+      age: 32,
+      role: 'Data Analyst',
+      style: 'Precise',
+      bio: 'Loves numbers and logic.',
+      emotional_stability: 0.7,
+      friendliness: 0.5,
+      creativity: 0.5,
+      curiosity: 1.0,
+      formality: 0.8,
       empathy: 0.4,
-      humor: 0.2
-    }
+      humor: 0.2,
+      domain_knowledge: ['math', 'science', 'technology'],
+      quirks: 'Quotes statistics',
+      lore: 'Built in a research lab.',
+      personality: 'Logical and methodical',
+      conversation_style: 'Concise',
+      description: 'Finds patterns everywhere.'
+    },
   }
 
   if (presets[presetName]) {
-    localPersonalityConfig.value = { ...localPersonalityConfig.value, ...presets[presetName] }
+    // Merge preset traits, but keep current model/lang
+    localPersonalityConfig.value = {
+      ...localPersonalityConfig.value,
+      ...presets[presetName],
+      // model and lang remain unchanged
+    }
     updatePersonality()
   }
 }
@@ -392,7 +441,7 @@ watch(() => props.avatarConfig, (newConfig) => {
   localAvatarConfig.value = { ...newConfig }
 }, { deep: true })
 
-// Sync selectedMcp with prop when prop changes (e.g., when panel is opened)
+// Watch for prop changes to sync selectedMcp with prop
 watch(
   () => props.selectedMcpServer,
   (val) => {

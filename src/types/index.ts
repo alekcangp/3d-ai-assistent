@@ -8,6 +8,11 @@ export interface AvatarConfig {
 }
 
 export interface PersonalityConfig {
+  name: string
+  age: number
+  role: string
+  style: string
+  bio: string
   emotional_stability: number
   friendliness: number
   creativity: number
@@ -15,6 +20,12 @@ export interface PersonalityConfig {
   formality: number
   empathy: number
   humor: number
+  domain_knowledge: string[]
+  quirks: string
+  lore: string
+  personality: string
+  conversation_style: string
+  description: string
   lang?: string
 }
 

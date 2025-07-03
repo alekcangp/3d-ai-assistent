@@ -50,11 +50,13 @@
         :personalityConfig="personalityConfig"
         :selectedLang="selectedLang"
         :selectedMcpServer="selectedMcpServer"
+        :selectedModel="selectedModel"
         @updateAvatar="updateAvatarConfig"
         @updatePersonality="updatePersonalityConfig"
         @close="toggleCustomization"
         @updateMcpServer="onUpdateMcpServer"
         @updateLang="onUpdateLang"
+        @updateModel="onUpdateModel"
       />
     </main>
 
@@ -88,24 +90,25 @@ const isProcessing = ref(false)
 const mouthOpenLevel = ref(0)
 let mouthTween: gsap.core.Tween | null = null
 const selectedLang = ref('system')
-const selectedMcpServer = ref(null)
+const selectedMcpServer = ref<string | null>(null)
+const selectedModel = ref('')
 
 // Refs
 const avatarCanvas = ref()
 
 // Configurations
-const defaultAvatarConfig = {
+const defaultAvatarConfig: AvatarConfig = {
   model: 'default',
   gender: 'neutral',
   outfit: 'casual',
-  hairColor: '#8B4513',
-  skinTone: '#FDBCB4',
-  eyeColor: '#4A90E2'
+  hairColor: '#000000',
+  skinTone: '#f5e0c0',
+  eyeColor: '#333333',
 }
 
 const avatarConfig = ref<AvatarConfig>({ ...defaultAvatarConfig })
 
-const personalityConfig = ref({
+let personalityConfig = ref<PersonalityConfig>({
   name: "Elandria the Arcane Scholar",
   age: 164,
   role: "an ancient elven mage",
@@ -124,14 +127,14 @@ const personalityConfig = ref({
   personality: "calm, wise, but sometimes condescending",
   conversation_style: "uses 'thee' and 'thou' occasionally",
   description: "Tall, silver-haired, wearing intricate robes with arcane symbols",
-  model: "Llama-3.3-70B-Instruct"
+  lang: 'en'
 })
 
 const messages = ref<Message[]>([])
 
 // Composables
 const { saveToStorage, loadFromStorage } = useLocalStorage()
-const { initializeAI, processMessage } = useAI()
+const { initializeAI } = useAI()
 const { startListening, stopListening, speak, stopSpeaking } = useSpeech()
 
 // Methods
@@ -171,7 +174,7 @@ async function sendToIOIntel(message: string) {
       message,
       traits: { ...personalityConfig.value, lang: langToSend },
       history,
-      model: personalityConfig.value.model,
+      model: selectedModel.value,
       mcpServer: selectedMcpServer.value,
       lang: langToSend
     })
@@ -206,7 +209,6 @@ const handleMessage = async (content: string) => {
       avatarCanvas.value.playAnimation('speaking')
     }
     isSpeaking.value = true
-    let boundaryTimeout: any = null
     await speak(aiResponse, () => {
       if (mouthTween) mouthTween.kill()
       mouthTween = gsap.to(mouthOpenLevel, {
@@ -251,13 +253,13 @@ const startVoiceInput = () => {
   }
   startListening(
     (transcript: string) => {
-      if (transcript) {
-        handleMessage(transcript)
-      }
-      stopVoiceInput()
+    if (transcript) {
+      handleMessage(transcript)
+    }
+    stopVoiceInput()
     },
     getCurrentLang(),
-    (error: string) => {
+    () => {
       isListening.value = false
       if (avatarCanvas.value) {
         avatarCanvas.value.playAnimation('idle')
@@ -274,15 +276,13 @@ const stopVoiceInput = () => {
   }
 }
 
-function handleStopSpeaking() {
-  stopSpeaking()
-  isSpeaking.value = false
-}
-
 // Save MCP server selection to storage when changed
 watch(selectedMcpServer, (newVal) => {
   saveToStorage('mcpServer', newVal)
 })
+
+// Add a flag to track if this is the first load
+let isFirstLoad = true
 
 // Initialize app
 onMounted(async () => {
@@ -294,30 +294,83 @@ onMounted(async () => {
   avatarConfig.value = { ...defaultAvatarConfig, ...(savedAvatarConfig || {}) }
   
   const savedPersonalityConfig = await loadFromStorage('personalityConfig', personalityConfig.value)
+  // Remove any lingering 'lang' and 'model' property
+  if (savedPersonalityConfig && 'lang' in savedPersonalityConfig) {
+    delete savedPersonalityConfig.lang
+  }
+  if (savedPersonalityConfig && 'model' in savedPersonalityConfig) {
+    delete savedPersonalityConfig.model
+  }
   personalityConfig.value = { ...personalityConfig.value, ...(savedPersonalityConfig || {}) }
   
   const savedMessages = await loadFromStorage('messages', [])
   messages.value = savedMessages || []
 
   // Load saved MCP server
-  const savedMcpServer = await loadFromStorage('mcpServer', null)
+  let savedMcpServer = await loadFromStorage('mcpServer', null)
+  if (savedMcpServer === undefined || savedMcpServer === '') savedMcpServer = null
   selectedMcpServer.value = savedMcpServer
 
-  // Initialize AI
+  // Load selectedLang
+  const lang = await loadFromStorage('selectedLang')
+  if (lang) {
+    selectedLang.value = lang
+    personalityConfig.value.lang = lang
+  } else {
+    selectedLang.value = 'system'
+    personalityConfig.value.lang = 'system'
+  }
+
+  // Fetch models and set default to second model if first load
   try {
+    loadingProgress.value = 10
+    const res = await fetch('http://localhost:8000/models')
+    const data = await res.json()
+    const models = data.models || []
+    if (isFirstLoad && models.length > 1) {
+      // Set professional preset and second model
+      personalityConfig.value = {
+        name: 'Professional AI',
+        age: 35,
+        role: 'Advisor',
+        style: 'Formal',
+        bio: 'An expert in business and productivity.',
+        emotional_stability: 0.9,
+        friendliness: 0.7,
+        creativity: 0.6,
+        curiosity: 0.7,
+        formality: 0.9,
+        empathy: 0.6,
+        humor: 0.3,
+        domain_knowledge: ['business', 'productivity'],
+        quirks: 'Always on time',
+        lore: 'Trained by top consultants.',
+        personality: 'Efficient and direct',
+        conversation_style: 'Formal',
+        description: 'Focused on results.'
+      }
+      saveToStorage('personalityConfig', personalityConfig.value)
+      isFirstLoad = false
+    }
     loadingProgress.value = 20
     await initializeAI()
     loadingProgress.value = 100
     setTimeout(() => {
       isLoading.value = false
     }, 500)
+
+    // On load, after fetching models, set selectedModel to models[1].id (or saved value)
+    const savedModel = await loadFromStorage('selectedModel', '')
+    if (models.length > 1) {
+      selectedModel.value = savedModel || models[1].id
+    } else if (models.length > 0) {
+      selectedModel.value = savedModel || models[0].id
+    }
+    saveToStorage('selectedModel', selectedModel.value)
   } catch (error) {
     console.error('Failed to initialize AI:', error)
     isLoading.value = false
   }
-
-  const lang = await loadFromStorage('selectedLang')
-  if (lang) selectedLang.value = lang
 })
 
 // Watch for theme changes
@@ -348,20 +401,35 @@ watch(showCustomization, (open) => {
   }
 })
 
-function onUpdateMcpServer(server) {
-  selectedMcpServer.value = server;
-  saveToStorage('mcpServer', server);
+function onUpdateMcpServer(server: string | null) {
+  selectedMcpServer.value = server || null
+  saveToStorage('mcpServer', selectedMcpServer.value)
 }
 
 function onUpdateLang(lang: string) {
   selectedLang.value = lang
+  personalityConfig.value.lang = lang
   saveToStorage('selectedLang', lang)
+  saveToStorage('personalityConfig', personalityConfig.value)
 }
 
 function getCurrentLang() {
   let lang = personalityConfig.value.lang
   if (!lang || lang === 'system') lang = navigator.language
   return lang
+}
+
+function handleStopSpeaking() {
+  stopSpeaking();
+  isSpeaking.value = false;
+  if (avatarCanvas.value) {
+    avatarCanvas.value.playAnimation('idle');
+  }
+}
+
+function onUpdateModel(model: string) {
+  selectedModel.value = model
+  saveToStorage('selectedModel', model)
 }
 </script>
 

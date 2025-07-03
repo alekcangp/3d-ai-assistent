@@ -21,11 +21,10 @@
 <script setup lang="ts">
 import { ref, onMounted, onUnmounted, watch } from 'vue'
 import * as THREE from 'three'
-import { gsap } from 'gsap'
-import type { AvatarConfig } from '../types'
 import { GLTFLoader } from 'three/examples/jsm/loaders/GLTFLoader.js'
 import { KTX2Loader } from 'three/examples/jsm/loaders/KTX2Loader.js'
 import { MeshoptDecoder } from 'three/examples/jsm/libs/meshopt_decoder.module.js'
+import type { AvatarConfig } from '../types'
 
 const props = defineProps<{
   avatarConfig: AvatarConfig
@@ -48,10 +47,10 @@ let mixer: THREE.AnimationMixer
 let animations: { [key: string]: THREE.AnimationAction } = {}
 
 let faceMesh: THREE.Mesh | null = null
-let jawOpenIndex: number | null = null
+// let jawOpenIndex: number | null = null // Removed unused variable
 // Add these for pupil morph targets
-let eyeLookInL, eyeLookOutL, eyeLookUpL, eyeLookDownL;
-let eyeLookInR, eyeLookOutR, eyeLookUpR, eyeLookDownR;
+let eyeLookInL: number | undefined, eyeLookOutL: number | undefined, eyeLookUpL: number | undefined, eyeLookDownL: number | undefined;
+let eyeLookInR: number | undefined, eyeLookOutR: number | undefined, eyeLookUpR: number | undefined, eyeLookDownR: number | undefined;
 
 let animationTime = 0;
 
@@ -61,33 +60,52 @@ let blinkDuration = 180 // ms
 let isBlinking = false
 let nextBlinkTime = Date.now() + 2000 + Math.random() * 2000
 let browRaiseLevel = 0
-let browRaiseTarget = 0
-let browRaiseStart = 0
-let browRaiseEnd = 0
 let smileLevel = 0
-let smileTarget = 0
-let smileStart = 0
-let smileEnd = 0
 
 // --- Random micro-expression state ---
-const randomFaceState = {
-  browOuterUpL: { t: 0, duration: 0, target: 0 },
-  browOuterUpR: { t: 0, duration: 0, target: 0 },
-  cheekPuff: { t: 0, duration: 0, target: 0 },
-  cheekSquintL: { t: 0, duration: 0, target: 0 },
-  cheekSquintR: { t: 0, duration: 0, target: 0 },
-  mouthSmileL: { t: 0, duration: 0, target: 0 },
-  mouthSmileR: { t: 0, duration: 0, target: 0 },
-  mouthFrownL: { t: 0, duration: 0, target: 0 },
-  mouthFrownR: { t: 0, duration: 0, target: 0 },
-  eyeSquintL: { t: 0, duration: 0, target: 0 },
-  eyeSquintR: { t: 0, duration: 0, target: 0 },
-  eyeBlinkL: { t: 0, duration: 0, target: 0 },
-  eyeBlinkR: { t: 0, duration: 0, target: 0 },
-  eyeWideL:{ t: 0, duration: 0, target: 0 },
-  eyeWideR: { t: 0, duration: 0, target: 0 },
-  noseSneerL: { t: 0, duration: 0, target: 0 },
-  noseSneerR: { t: 0, duration: 0, target: 0 },
+type RandomFaceState = {
+  [key: string]: { t: number; duration: number; target: number; value: number }
+  browOuterUpL: { t: number; duration: number; target: number; value: number }
+  browOuterUpR: { t: number; duration: number; target: number; value: number }
+  cheekPuff: { t: number; duration: number; target: number; value: number }
+  cheekSquintL: { t: number; duration: number; target: number; value: number }
+  cheekSquintR: { t: number; duration: number; target: number; value: number }
+  mouthSmileL: { t: number; duration: number; target: number; value: number }
+  mouthSmileR: { t: number; duration: number; target: number; value: number }
+  mouthFrownL: { t: number; duration: number; target: number; value: number }
+  mouthFrownR: { t: number; duration: number; target: number; value: number }
+  browDownL: { t: number; duration: number; target: number; value: number }
+  browDownR: { t: number; duration: number; target: number; value: number }
+  eyeWideL: { t: number; duration: number; target: number; value: number }
+  eyeWideR: { t: number; duration: number; target: number; value: number }
+  eyeSquintL: { t: number; duration: number; target: number; value: number }
+  eyeSquintR: { t: number; duration: number; target: number; value: number }
+  eyeBlinkL: { t: number; duration: number; target: number; value: number }
+  eyeBlinkR: { t: number; duration: number; target: number; value: number }
+  noseSneerL: { t: number; duration: number; target: number; value: number }
+  noseSneerR: { t: number; duration: number; target: number; value: number }
+}
+
+const randomFaceState: RandomFaceState = {
+  browOuterUpL: { t: 0, duration: 0, target: 0, value: 0 },
+  browOuterUpR: { t: 0, duration: 0, target: 0, value: 0 },
+  cheekPuff: { t: 0, duration: 0, target: 0, value: 0 },
+  cheekSquintL: { t: 0, duration: 0, target: 0, value: 0 },
+  cheekSquintR: { t: 0, duration: 0, target: 0, value: 0 },
+  mouthSmileL: { t: 0, duration: 0, target: 0, value: 0 },
+  mouthSmileR: { t: 0, duration: 0, target: 0, value: 0 },
+  mouthFrownL: { t: 0, duration: 0, target: 0, value: 0 },
+  mouthFrownR: { t: 0, duration: 0, target: 0, value: 0 },
+  browDownL: { t: 0, duration: 0, target: 0, value: 0 },
+  browDownR: { t: 0, duration: 0, target: 0, value: 0 },
+  eyeWideL: { t: 0, duration: 0, target: 0, value: 0 },
+  eyeWideR: { t: 0, duration: 0, target: 0, value: 0 },
+  eyeSquintL: { t: 0, duration: 0, target: 0, value: 0 },
+  eyeSquintR: { t: 0, duration: 0, target: 0, value: 0 },
+  eyeBlinkL: { t: 0, duration: 0, target: 0, value: 0 },
+  eyeBlinkR: { t: 0, duration: 0, target: 0, value: 0 },
+  noseSneerL: { t: 0, duration: 0, target: 0, value: 0 },
+  noseSneerR: { t: 0, duration: 0, target: 0, value: 0 },
 }
 
 // --- Random walk state for eyes ---
@@ -139,61 +157,6 @@ function updateRandomEyeState() {
   randomEyeState.x = Math.max(-0.04, Math.min(0.04, randomEyeState.x))
   randomEyeState.y = Math.max(-0.04, Math.min(0.04, randomEyeState.y))
 }
-
-const FACIAL_MORPH_TARGETS = [
-  "browInnerUp",
-  "browDown_L",
-  "browDown_R",
-  "browOuterUp_L",
-  "browOuterUp_R",
-  "eyeLookUp_L",
-  "eyeLookUp_R",
-  "eyeLookDown_L",
-  "eyeLookDown_R",
-  "eyeLookIn_L",
-  "eyeLookIn_R",
-  "eyeLookOut_L",
-  "eyeLookOut_R",
-  "eyeBlink_L",
-  "eyeBlink_R",
-  "eyeSquint_L",
-  "eyeSquint_R",
-  "eyeWide_L",
-  "eyeWide_R",
-  "cheekPuff",
-  "cheekSquint_L",
-  "cheekSquint_R",
-  "noseSneer_L",
-  "noseSneer_R",
-  "jawOpen",
-  "jawForward",
-  "jawLeft",
-  "jawRight",
-  "mouthFunnel",
-  "mouthPucker",
-  "mouthLeft",
-  "mouthRight",
-  "mouthRollUpper",
-  "mouthRollLower",
-  "mouthShrugUpper",
-  "mouthShrugLower",
-  "mouthClose",
-  "mouthSmile_L",
-  "mouthSmile_R",
-  "mouthFrown_L",
-  "mouthFrown_R",
-  "mouthDimple_L",
-  "mouthDimple_R",
-  "mouthUpperUp_L",
-  "mouthUpperUp_R",
-  "mouthLowerDown_L",
-  "mouthLowerDown_R",
-  "mouthPress_L",
-  "mouthPress_R",
-  "mouthStretch_L",
-  "mouthStretch_R",
-  "tongueOut"
-]
 
 const initThree = async () => {
   if (!canvasRef.value) return
@@ -252,34 +215,36 @@ const createAvatar = async () => {
     avatar.scale.set(1.3, 1.3, 1)
     // Apply normal-based rainbow effect
     avatar.traverse((child) => {
-      if (child.isMesh) {
-        child.material = new THREE.MeshNormalMaterial();
+      if ((child as THREE.Mesh).isMesh) {
+        (child as THREE.Mesh).material = new THREE.MeshNormalMaterial();
       }
     })
     scene.add(avatar)
     // Find face mesh with morph targets
     avatar.traverse((child) => {
-      if (child.isMesh && child.morphTargetInfluences && child.morphTargetInfluences.length > 0) {
-        faceMesh = child
-        // Get the index for 'jawOpen'
-        if ('jawOpen' in faceMesh.morphTargetDictionary) {
-          jawOpenIndex = faceMesh.morphTargetDictionary['jawOpen']
-        }
+      const influences = (child as THREE.Mesh).morphTargetInfluences;
+      if (
+        (child as THREE.Mesh).isMesh &&
+        influences &&
+        influences.length > 0 &&
+        (child as THREE.Mesh).morphTargetDictionary
+      ) {
+        faceMesh = child as THREE.Mesh
         // Assign indices for eye pupil morph targets
-        eyeLookInL = faceMesh.morphTargetDictionary["eyeLookIn_L"];
-        eyeLookOutL = faceMesh.morphTargetDictionary["eyeLookOut_L"];
-        eyeLookUpL = faceMesh.morphTargetDictionary["eyeLookUp_L"];
-        eyeLookDownL = faceMesh.morphTargetDictionary["eyeLookDown_L"];
-        eyeLookInR = faceMesh.morphTargetDictionary["eyeLookIn_R"];
-        eyeLookOutR = faceMesh.morphTargetDictionary["eyeLookOut_R"];
-        eyeLookUpR = faceMesh.morphTargetDictionary["eyeLookUp_R"];
-        eyeLookDownR = faceMesh.morphTargetDictionary["eyeLookDown_R"];
+        eyeLookInL = (child as THREE.Mesh).morphTargetDictionary?.["eyeLookIn_L"] ?? 0;
+        eyeLookOutL = (child as THREE.Mesh).morphTargetDictionary?.["eyeLookOut_L"] ?? 0;
+        eyeLookUpL = (child as THREE.Mesh).morphTargetDictionary?.["eyeLookUp_L"] ?? 0;
+        eyeLookDownL = (child as THREE.Mesh).morphTargetDictionary?.["eyeLookDown_L"] ?? 0;
+        eyeLookInR = (child as THREE.Mesh).morphTargetDictionary?.["eyeLookIn_R"] ?? 0;
+        eyeLookOutR = (child as THREE.Mesh).morphTargetDictionary?.["eyeLookOut_R"] ?? 0;
+        eyeLookUpR = (child as THREE.Mesh).morphTargetDictionary?.["eyeLookUp_R"] ?? 0;
+        eyeLookDownR = (child as THREE.Mesh).morphTargetDictionary?.["eyeLookDown_R"] ?? 0;
       }
     })
     setupAnimations()
   }, undefined, (error) => {
     console.error('Error loading GLB:', error)
-    alert('Failed to load avatar model: ' + error.message)
+    alert('Failed to load avatar model: ' + (error instanceof Error ? error.message : String(error)))
   })
 }
 
@@ -329,6 +294,12 @@ const playAnimation = (animationName: string) => {
 const animate = () => {
   animationId = requestAnimationFrame(animate)
 
+  // Add a single null check to prevent TS2532 errors
+  if (!faceMesh || !faceMesh.morphTargetInfluences || !faceMesh.morphTargetDictionary) {
+    renderer.render(scene, camera)
+    return
+  }
+
   // Update animations
   if (mixer) {
     mixer.update(0.032) // 30fps
@@ -336,7 +307,6 @@ const animate = () => {
 
   // Use persistent animation time for all facial movement
   animationTime += 0.008; // slow, tune as needed
-  const t = animationTime;
 
   // Realistic facial animation
   if (faceMesh && faceMesh.morphTargetInfluences && faceMesh.morphTargetDictionary) {
@@ -347,7 +317,7 @@ const animate = () => {
     // Only reset jaw-related morphs, not cheeks or brows
     const jawTargets = ["jawOpen", "mouthFunnel", "mouthPucker", "mouthRollUpper", "mouthRollLower", "mouthShrugUpper", "mouthShrugLower", "mouthClose"]
     jawTargets.forEach(name => {
-      const idx = faceMesh.morphTargetDictionary[name]
+      const idx = faceMesh?.morphTargetDictionary?.[name] ?? 0;
       if (typeof idx === 'number') {
         if (name === 'jawOpen') {
           if (typeof props.mouthOpenLevel === 'number' && (props.isSpeaking || props.mouthOpenLevel > 0)) {
@@ -355,16 +325,24 @@ const animate = () => {
             const now = performance.now() / 1000;
             const fastOsc = 0.08 * Math.sin(now * 12.0 + t * 2.0); // fast, subtle
             const noise = 0.06 * (Math.random() - 0.5);
-            faceMesh.morphTargetInfluences[idx] = Math.max(0, Math.min(1, props.mouthOpenLevel + fastOsc + noise));
+            if (faceMesh && faceMesh.morphTargetInfluences) {
+              faceMesh.morphTargetInfluences[idx] = Math.max(0, Math.min(1, props.mouthOpenLevel + fastOsc + noise));
+            }
           } else {
             // Subtle breathing: slow, small sine wave
-            faceMesh.morphTargetInfluences[idx] = 0.04 + 0.03 * Math.abs(Math.sin(t * 0.0012))
+            if (faceMesh && faceMesh.morphTargetInfluences) {
+              faceMesh.morphTargetInfluences[idx] = 0.04 + 0.03 * Math.abs(Math.sin(t * 0.0012));
+            }
           }
         } else if (props.isSpeaking && ["mouthFunnel", "mouthPucker"].includes(name)) {
           // Subtle random movement for lips during speech
-          faceMesh.morphTargetInfluences[idx] = 0.05 * Math.abs(Math.sin(t * 2.5 + Math.random() * 2));
+          if (faceMesh && faceMesh.morphTargetInfluences) {
+            faceMesh.morphTargetInfluences[idx] = 0.05 * Math.abs(Math.sin(t * 2.5 + Math.random() * 2));
+          }
         } else {
-          faceMesh.morphTargetInfluences[idx] = 0
+          if (faceMesh && faceMesh.morphTargetInfluences) {
+            faceMesh.morphTargetInfluences[idx] = 0;
+          }
         }
       }
     })
@@ -374,116 +352,304 @@ const animate = () => {
     if (props.isSpeaking && typeof props.mouthOpenLevel === 'number') {
       // Use slow t for all facial mimic
       // Cheeks: puff and squint a little, not always at the same time, plus random micro-movement
-      const cheekPuff = faceMesh.morphTargetDictionary["cheekPuff"]
-      const cheekSquintL = faceMesh.morphTargetDictionary["cheekSquint_L"]
-      const cheekSquintR = faceMesh.morphTargetDictionary["cheekSquint_R"]
-      if (typeof cheekPuff === 'number') faceMesh.morphTargetInfluences[cheekPuff] = 0.05 + 0.07 * Math.abs(Math.sin(t + 1)) * Math.random() + (randomFaceState.cheekPuff.value || 0)
-      if (typeof cheekSquintL === 'number') faceMesh.morphTargetInfluences[cheekSquintL] = 0.04 + 0.06 * Math.abs(Math.sin(t * 1.2 + 2)) * Math.random() + (randomFaceState.cheekSquintL.value || 0)
-      if (typeof cheekSquintR === 'number') faceMesh.morphTargetInfluences[cheekSquintR] = 0.04 + 0.06 * Math.abs(Math.sin(t * 1.3 + 3)) * Math.random() + (randomFaceState.cheekSquintR.value || 0)
+      const cheekPuff = faceMesh?.morphTargetDictionary?.["cheekPuff"] ?? 0;
+      const cheekSquintL = faceMesh?.morphTargetDictionary?.["cheekSquint_L"] ?? 0;
+      const cheekSquintR = faceMesh?.morphTargetDictionary?.["cheekSquint_R"] ?? 0;
+      if (typeof cheekPuff === 'number') {
+        if (faceMesh && faceMesh.morphTargetInfluences) {
+          faceMesh.morphTargetInfluences[cheekPuff] = 0.05 + 0.07 * Math.abs(Math.sin(t + 1)) * Math.random() + (randomFaceState.cheekPuff.value || 0);
+        }
+      }
+      if (typeof cheekSquintL === 'number') {
+        if (faceMesh && faceMesh.morphTargetInfluences) {
+          faceMesh.morphTargetInfluences[cheekSquintL] = 0.04 + 0.06 * Math.abs(Math.sin(t * 1.2 + 2)) * Math.random() + (randomFaceState.cheekSquintL.value || 0);
+        }
+      }
+      if (typeof cheekSquintR === 'number') {
+        if (faceMesh && faceMesh.morphTargetInfluences) {
+          faceMesh.morphTargetInfluences[cheekSquintR] = 0.04 + 0.06 * Math.abs(Math.sin(t * 1.3 + 3)) * Math.random() + (randomFaceState.cheekSquintR.value || 0);
+        }
+      }
       // Brows: subtle up/down, not both at once, plus random micro-movement
-      const browDownL = faceMesh.morphTargetDictionary["browDown_L"]
-      const browDownR = faceMesh.morphTargetDictionary["browDown_R"]
-      const browOuterUpL = faceMesh.morphTargetDictionary["browOuterUp_L"]
-      const browOuterUpR = faceMesh.morphTargetDictionary["browOuterUp_R"]
-      if (typeof browDownL === 'number') faceMesh.morphTargetInfluences[browDownL] = 0.03 * Math.abs(Math.sin(t * 0.7 + 1)) * Math.random() + (randomFaceState.browOuterUpL.value || 0)
-      if (typeof browDownR === 'number') faceMesh.morphTargetInfluences[browDownR] = 0.03 * Math.abs(Math.sin(t * 0.8 + 2)) * Math.random() + (randomFaceState.browOuterUpR.value || 0)
-      if (typeof browOuterUpL === 'number') faceMesh.morphTargetInfluences[browOuterUpL] = 0.04 * Math.abs(Math.sin(t * 0.9 + 1)) * Math.random() + (randomFaceState.browOuterUpL.value || 0)
-      if (typeof browOuterUpR === 'number') faceMesh.morphTargetInfluences[browOuterUpR] = 0.04 * Math.abs(Math.sin(t + 2)) * Math.random() + (randomFaceState.browOuterUpR.value || 0)
+      const browDownL = faceMesh?.morphTargetDictionary?.["browDown_L"] ?? 0;
+      const browDownR = faceMesh?.morphTargetDictionary?.["browDown_R"] ?? 0;
+      const browOuterUpL = faceMesh?.morphTargetDictionary?.["browOuterUp_L"] ?? 0;
+      const browOuterUpR = faceMesh?.morphTargetDictionary?.["browOuterUp_R"] ?? 0;
+      if (typeof browDownL === 'number') {
+        if (faceMesh && faceMesh.morphTargetInfluences) {
+          faceMesh.morphTargetInfluences[browDownL] = 0.03 * Math.abs(Math.sin(t * 0.7 + 1)) * Math.random() + (randomFaceState.browOuterUpL.value || 0);
+        }
+      }
+      if (typeof browDownR === 'number') {
+        if (faceMesh && faceMesh.morphTargetInfluences) {
+          faceMesh.morphTargetInfluences[browDownR] = 0.03 * Math.abs(Math.sin(t * 0.8 + 2)) * Math.random() + (randomFaceState.browOuterUpR.value || 0);
+        }
+      }
+      if (typeof browOuterUpL === 'number') {
+        if (faceMesh && faceMesh.morphTargetInfluences) {
+          faceMesh.morphTargetInfluences[browOuterUpL] = 0.04 * Math.abs(Math.sin(t * 0.9 + 1)) * Math.random() + (randomFaceState.browOuterUpL.value || 0);
+        }
+      }
+      if (typeof browOuterUpR === 'number') {
+        if (faceMesh && faceMesh.morphTargetInfluences) {
+          faceMesh.morphTargetInfluences[browOuterUpR] = 0.04 * Math.abs(Math.sin(t + 2)) * Math.random() + (randomFaceState.browOuterUpR.value || 0);
+        }
+      }
       // Lips: subtle press/stretch (mouthPress even more reduced), smile/frown random micro-movement
-      const mouthPressL = faceMesh.morphTargetDictionary["mouthPress_L"]
-      const mouthPressR = faceMesh.morphTargetDictionary["mouthPress_R"]
-      const mouthStretchL = faceMesh.morphTargetDictionary["mouthStretch_L"]
-      const mouthStretchR = faceMesh.morphTargetDictionary["mouthStretch_R"]
-      if (typeof mouthPressL === 'number') faceMesh.morphTargetInfluences[mouthPressL] = 0.005 * Math.abs(Math.sin(t * 1.1 + 1)) * Math.random()
-      if (typeof mouthPressR === 'number') faceMesh.morphTargetInfluences[mouthPressR] = 0.005 * Math.abs(Math.sin(t * 1.2 + 2)) * Math.random()
-      if (typeof mouthStretchL === 'number') faceMesh.morphTargetInfluences[mouthStretchL] = 0.004 * Math.abs(Math.sin(t * 1.1 + 3)) * Math.random()
-      if (typeof mouthStretchR === 'number') faceMesh.morphTargetInfluences[mouthStretchR] = 0.004 * Math.abs(Math.sin(t * 1.2 + 4)) * Math.random()
-      const smileL = faceMesh.morphTargetDictionary["mouthSmile_L"]
-      const smileR = faceMesh.morphTargetDictionary["mouthSmile_R"]
-      if (typeof smileL === 'number') faceMesh.morphTargetInfluences[smileL] = (randomFaceState.mouthSmileL.value || 0)
-      if (typeof smileR === 'number') faceMesh.morphTargetInfluences[smileR] = (randomFaceState.mouthSmileR.value || 0)
-      const mouthFrownL = faceMesh.morphTargetDictionary["mouthFrown_L"]
-      const mouthFrownR = faceMesh.morphTargetDictionary["mouthFrown_R"]
-      if (typeof mouthFrownL === 'number') faceMesh.morphTargetInfluences[mouthFrownL] = (randomFaceState.mouthFrownL.value || 0)
-      if (typeof mouthFrownR === 'number') faceMesh.morphTargetInfluences[mouthFrownR] = (randomFaceState.mouthFrownR.value || 0)
+      const mouthPressL = faceMesh?.morphTargetDictionary?.["mouthPress_L"] ?? 0;
+      const mouthPressR = faceMesh?.morphTargetDictionary?.["mouthPress_R"] ?? 0;
+      const mouthStretchL = faceMesh?.morphTargetDictionary?.["mouthStretch_L"] ?? 0;
+      const mouthStretchR = faceMesh?.morphTargetDictionary?.["mouthStretch_R"] ?? 0;
+      if (typeof mouthPressL === 'number') {
+        if (faceMesh && faceMesh.morphTargetInfluences) {
+          faceMesh.morphTargetInfluences[mouthPressL] = 0.005 * Math.abs(Math.sin(t * 1.1 + 1)) * Math.random();
+        }
+      }
+      if (typeof mouthPressR === 'number') {
+        if (faceMesh && faceMesh.morphTargetInfluences) {
+          faceMesh.morphTargetInfluences[mouthPressR] = 0.005 * Math.abs(Math.sin(t * 1.2 + 2)) * Math.random();
+        }
+      }
+      if (typeof mouthStretchL === 'number') {
+        if (faceMesh && faceMesh.morphTargetInfluences) {
+          faceMesh.morphTargetInfluences[mouthStretchL] = 0.004 * Math.abs(Math.sin(t * 1.1 + 3)) * Math.random();
+        }
+      }
+      if (typeof mouthStretchR === 'number') {
+        if (faceMesh && faceMesh.morphTargetInfluences) {
+          faceMesh.morphTargetInfluences[mouthStretchR] = 0.004 * Math.abs(Math.sin(t * 1.2 + 4)) * Math.random();
+        }
+      }
+      const smileL = faceMesh?.morphTargetDictionary?.["mouthSmile_L"] ?? 0;
+      const smileR = faceMesh?.morphTargetDictionary?.["mouthSmile_R"] ?? 0;
+      if (typeof smileL === 'number') {
+        if (faceMesh && faceMesh.morphTargetInfluences) {
+          faceMesh.morphTargetInfluences[smileL] = (randomFaceState.mouthSmileL.value || 0);
+        }
+      }
+      if (typeof smileR === 'number') {
+        if (faceMesh && faceMesh.morphTargetInfluences) {
+          faceMesh.morphTargetInfluences[smileR] = (randomFaceState.mouthSmileR.value || 0);
+        }
+      }
+      const mouthFrownL = faceMesh?.morphTargetDictionary?.["mouthFrown_L"] ?? 0;
+      const mouthFrownR = faceMesh?.morphTargetDictionary?.["mouthFrown_R"] ?? 0;
+      if (typeof mouthFrownL === 'number') {
+        if (faceMesh && faceMesh.morphTargetInfluences) {
+          faceMesh.morphTargetInfluences[mouthFrownL] = (randomFaceState.mouthFrownL.value || 0);
+        }
+      }
+      if (typeof mouthFrownR === 'number') {
+        if (faceMesh && faceMesh.morphTargetInfluences) {
+          faceMesh.morphTargetInfluences[mouthFrownR] = (randomFaceState.mouthFrownR.value || 0);
+        }
+      }
     } else if (props.isListening) {
       // Listening: use same random micro-movement logic as idle
       // Cheeks: puff and squint a little, not always at the same time, plus random micro-movement
-      const cheekPuff = faceMesh.morphTargetDictionary["cheekPuff"]
-      const cheekSquintL = faceMesh.morphTargetDictionary["cheekSquint_L"]
-      const cheekSquintR = faceMesh.morphTargetDictionary["cheekSquint_R"]
-      if (typeof cheekPuff === 'number') faceMesh.morphTargetInfluences[cheekPuff] = 0.018 + 0.018 * Math.sin(t + 1) + 0.0045 * Math.random() + 1.5 * (randomFaceState.cheekPuff.value || 0)
-      if (typeof cheekSquintL === 'number') faceMesh.morphTargetInfluences[cheekSquintL] = 0.012 + 0.012 * Math.sin(t * 1.1 + 2) + 0.003 * Math.random() + 1.5 * (randomFaceState.cheekSquintL.value || 0)
-      if (typeof cheekSquintR === 'number') faceMesh.morphTargetInfluences[cheekSquintR] = 0.012 + 0.012 * Math.sin(t * 1.2 + 3) + 0.003 * Math.random() + 1.5 * (randomFaceState.cheekSquintR.value || 0)
-      const browDownL = faceMesh.morphTargetDictionary["browDown_L"]
-      const browDownR = faceMesh.morphTargetDictionary["browDown_R"]
-      const browOuterUpL = faceMesh.morphTargetDictionary["browOuterUp_L"]
-      const browOuterUpR = faceMesh.morphTargetDictionary["browOuterUp_R"]
-      if (typeof browDownL === 'number') faceMesh.morphTargetInfluences[browDownL] = 0.012 * (0.5 + 0.5 * Math.sin(t * 0.9 + 1)) + 0.003 * Math.random()
-      if (typeof browDownR === 'number') faceMesh.morphTargetInfluences[browDownR] = 0.012 * (0.5 + 0.5 * Math.sin(t * 1.1 + 2)) + 0.003 * Math.random()
-      if (typeof browOuterUpL === 'number') faceMesh.morphTargetInfluences[browOuterUpL] = 0.045 * (0.5 + 0.5 * Math.sin(t * 1.2 + 3)) + 0.006 * Math.random() + 1.5 * (randomFaceState.browOuterUpL.value || 0)
-      if (typeof browOuterUpR === 'number') faceMesh.morphTargetInfluences[browOuterUpR] = 0.045 * (0.5 + 0.5 * Math.sin(t * 0.8 + 4)) + 0.006 * Math.random() + 1.5 * (randomFaceState.browOuterUpR.value || 0)
-      const smileL = faceMesh.morphTargetDictionary["mouthSmile_L"]
-      const smileR = faceMesh.morphTargetDictionary["mouthSmile_R"]
-      if (typeof smileL === 'number') faceMesh.morphTargetInfluences[smileL] = 0.18 + 0.045 * Math.sin(t * 0.7 + 1) + 1.5 * (randomFaceState.mouthSmileL.value || 0)
-      if (typeof smileR === 'number') faceMesh.morphTargetInfluences[smileR] = 0.18 + 0.045 * Math.sin(t * 0.7 + 2) + 1.5 * (randomFaceState.mouthSmileR.value || 0)
-      const mouthFrownL = faceMesh.morphTargetDictionary["mouthFrown_L"]
-      const mouthFrownR = faceMesh.morphTargetDictionary["mouthFrown_R"]
-      if (typeof mouthFrownL === 'number') faceMesh.morphTargetInfluences[mouthFrownL] = 1.5 * (randomFaceState.mouthFrownL.value || 0)
-      if (typeof mouthFrownR === 'number') faceMesh.morphTargetInfluences[mouthFrownR] = 1.5 * (randomFaceState.mouthFrownR.value || 0)
+      const cheekPuff = faceMesh?.morphTargetDictionary?.["cheekPuff"] ?? 0;
+      const cheekSquintL = faceMesh?.morphTargetDictionary?.["cheekSquint_L"] ?? 0;
+      const cheekSquintR = faceMesh?.morphTargetDictionary?.["cheekSquint_R"] ?? 0;
+      if (typeof cheekPuff === 'number') {
+        if (faceMesh && faceMesh.morphTargetInfluences) {
+          faceMesh.morphTargetInfluences[cheekPuff] = 0.018 + 0.018 * Math.sin(t + 1) + 0.0045 * Math.random() + 1.5 * (randomFaceState.cheekPuff.value || 0);
+        }
+      }
+      if (typeof cheekSquintL === 'number') {
+        if (faceMesh && faceMesh.morphTargetInfluences) {
+          faceMesh.morphTargetInfluences[cheekSquintL] = 0.012 + 0.012 * Math.sin(t * 1.1 + 2) + 0.003 * Math.random() + 1.5 * (randomFaceState.cheekSquintL.value || 0);
+        }
+      }
+      if (typeof cheekSquintR === 'number') {
+        if (faceMesh && faceMesh.morphTargetInfluences) {
+          faceMesh.morphTargetInfluences[cheekSquintR] = 0.012 + 0.012 * Math.sin(t * 1.2 + 3) + 0.003 * Math.random() + 1.5 * (randomFaceState.cheekSquintR.value || 0);
+        }
+      }
+      const browDownL = faceMesh?.morphTargetDictionary?.["browDown_L"] ?? 0;
+      const browDownR = faceMesh?.morphTargetDictionary?.["browDown_R"] ?? 0;
+      const browOuterUpL = faceMesh?.morphTargetDictionary?.["browOuterUp_L"] ?? 0;
+      const browOuterUpR = faceMesh?.morphTargetDictionary?.["browOuterUp_R"] ?? 0;
+      if (typeof browDownL === 'number') {
+        if (faceMesh && faceMesh.morphTargetInfluences) {
+          faceMesh.morphTargetInfluences[browDownL] = 0.012 * (0.5 + 0.5 * Math.sin(t * 0.9 + 1)) + 0.003 * Math.random();
+        }
+      }
+      if (typeof browDownR === 'number') {
+        if (faceMesh && faceMesh.morphTargetInfluences) {
+          faceMesh.morphTargetInfluences[browDownR] = 0.012 * (0.5 + 0.5 * Math.sin(t * 1.1 + 2)) + 0.003 * Math.random();
+        }
+      }
+      if (typeof browOuterUpL === 'number') {
+        if (faceMesh && faceMesh.morphTargetInfluences) {
+          faceMesh.morphTargetInfluences[browOuterUpL] = 0.045 * (0.5 + 0.5 * Math.sin(t * 1.2 + 3)) + 0.006 * Math.random() + 1.5 * (randomFaceState.browOuterUpL.value || 0);
+        }
+      }
+      if (typeof browOuterUpR === 'number') {
+        if (faceMesh && faceMesh.morphTargetInfluences) {
+          faceMesh.morphTargetInfluences[browOuterUpR] = 0.045 * (0.5 + 0.5 * Math.sin(t * 0.8 + 4)) + 0.006 * Math.random() + 1.5 * (randomFaceState.browOuterUpR.value || 0);
+        }
+      }
+      const smileL = faceMesh?.morphTargetDictionary?.["mouthSmile_L"] ?? 0;
+      const smileR = faceMesh?.morphTargetDictionary?.["mouthSmile_R"] ?? 0;
+      if (typeof smileL === 'number') {
+        if (faceMesh && faceMesh.morphTargetInfluences) {
+          faceMesh.morphTargetInfluences[smileL] = 0.18 + 0.045 * Math.sin(t * 0.7 + 1) + 1.5 * (randomFaceState.mouthSmileL.value || 0);
+        }
+      }
+      if (typeof smileR === 'number') {
+        if (faceMesh && faceMesh.morphTargetInfluences) {
+          faceMesh.morphTargetInfluences[smileR] = 0.18 + 0.045 * Math.sin(t * 0.7 + 2) + 1.5 * (randomFaceState.mouthSmileR.value || 0);
+        }
+      }
+      const mouthFrownL = faceMesh?.morphTargetDictionary?.["mouthFrown_L"] ?? 0;
+      const mouthFrownR = faceMesh?.morphTargetDictionary?.["mouthFrown_R"] ?? 0;
+      if (typeof mouthFrownL === 'number') {
+        if (faceMesh && faceMesh.morphTargetInfluences) {
+          faceMesh.morphTargetInfluences[mouthFrownL] = 1.5 * (randomFaceState.mouthFrownL.value || 0);
+        }
+      }
+      if (typeof mouthFrownR === 'number') {
+        if (faceMesh && faceMesh.morphTargetInfluences) {
+          faceMesh.morphTargetInfluences[mouthFrownR] = 1.5 * (randomFaceState.mouthFrownR.value || 0);
+        }
+      }
     } else {
       // Small, realistic mimic in silence
       // Cheeks: more expressive in idle (even slower)
-      const cheekPuff = faceMesh.morphTargetDictionary["cheekPuff"]
-      const cheekSquintL = faceMesh.morphTargetDictionary["cheekSquint_L"]
-      const cheekSquintR = faceMesh.morphTargetDictionary["cheekSquint_R"]
-      if (typeof cheekPuff === 'number') faceMesh.morphTargetInfluences[cheekPuff] = 0.018 + 0.018 * Math.sin(t + 1) + 0.0045 * Math.random() + 1.5 * (randomFaceState.cheekPuff.value || 0)
-      if (typeof cheekSquintL === 'number') faceMesh.morphTargetInfluences[cheekSquintL] = 0.012 + 0.012 * Math.sin(t * 1.1 + 2) + 0.003 * Math.random() + 1.5 * (randomFaceState.cheekSquintL.value || 0)
-      if (typeof cheekSquintR === 'number') faceMesh.morphTargetInfluences[cheekSquintR] = 0.012 + 0.012 * Math.sin(t * 1.2 + 3) + 0.003 * Math.random() + 1.5 * (randomFaceState.cheekSquintR.value || 0)
+      const cheekPuff = faceMesh?.morphTargetDictionary?.["cheekPuff"] ?? 0;
+      const cheekSquintL = faceMesh?.morphTargetDictionary?.["cheekSquint_L"] ?? 0;
+      const cheekSquintR = faceMesh?.morphTargetDictionary?.["cheekSquint_R"] ?? 0;
+      if (typeof cheekPuff === 'number') {
+        if (faceMesh && faceMesh.morphTargetInfluences) {
+          faceMesh.morphTargetInfluences[cheekPuff] = 0.018 + 0.018 * Math.sin(t + 1) + 0.0045 * Math.random() + 1.5 * (randomFaceState.cheekPuff.value || 0);
+        }
+      }
+      if (typeof cheekSquintL === 'number') {
+        if (faceMesh && faceMesh.morphTargetInfluences) {
+          faceMesh.morphTargetInfluences[cheekSquintL] = 0.012 + 0.012 * Math.sin(t * 1.1 + 2) + 0.003 * Math.random() + 1.5 * (randomFaceState.cheekSquintL.value || 0);
+        }
+      }
+      if (typeof cheekSquintR === 'number') {
+        if (faceMesh && faceMesh.morphTargetInfluences) {
+          faceMesh.morphTargetInfluences[cheekSquintR] = 0.012 + 0.012 * Math.sin(t * 1.2 + 3) + 0.003 * Math.random() + 1.5 * (randomFaceState.cheekSquintR.value || 0);
+        }
+      }
       // Brows: more expressive in idle (even slower)
-      const browDownL = faceMesh.morphTargetDictionary["browDown_L"]
-      const browDownR = faceMesh.morphTargetDictionary["browDown_R"]
-      const browOuterUpL = faceMesh.morphTargetDictionary["browOuterUp_L"]
-      const browOuterUpR = faceMesh.morphTargetDictionary["browOuterUp_R"]
-      if (typeof browDownL === 'number') faceMesh.morphTargetInfluences[browDownL] = 0.012 * (0.5 + 0.5 * Math.sin(t * 0.9 + 1)) + 0.003 * Math.random()
-      if (typeof browDownR === 'number') faceMesh.morphTargetInfluences[browDownR] = 0.012 * (0.5 + 0.5 * Math.sin(t * 1.1 + 2)) + 0.003 * Math.random()
-      if (typeof browOuterUpL === 'number') faceMesh.morphTargetInfluences[browOuterUpL] = 0.045 * (0.5 + 0.5 * Math.sin(t * 1.2 + 3)) + 0.006 * Math.random() + 1.5 * (randomFaceState.browOuterUpL.value || 0)
-      if (typeof browOuterUpR === 'number') faceMesh.morphTargetInfluences[browOuterUpR] = 0.045 * (0.5 + 0.5 * Math.sin(t * 0.8 + 4)) + 0.006 * Math.random() + 1.5 * (randomFaceState.browOuterUpR.value || 0)
+      const browDownL = faceMesh?.morphTargetDictionary?.["browDown_L"] ?? 0;
+      const browDownR = faceMesh?.morphTargetDictionary?.["browDown_R"] ?? 0;
+      const browOuterUpL = faceMesh?.morphTargetDictionary?.["browOuterUp_L"] ?? 0;
+      const browOuterUpR = faceMesh?.morphTargetDictionary?.["browOuterUp_R"] ?? 0;
+      if (typeof browDownL === 'number') {
+        if (faceMesh && faceMesh.morphTargetInfluences) {
+          faceMesh.morphTargetInfluences[browDownL] = 0.012 * (0.5 + 0.5 * Math.sin(t * 0.9 + 1)) + 0.003 * Math.random();
+        }
+      }
+      if (typeof browDownR === 'number') {
+        if (faceMesh && faceMesh.morphTargetInfluences) {
+          faceMesh.morphTargetInfluences[browDownR] = 0.012 * (0.5 + 0.5 * Math.sin(t * 1.1 + 2)) + 0.003 * Math.random();
+        }
+      }
+      if (typeof browOuterUpL === 'number') {
+        if (faceMesh && faceMesh.morphTargetInfluences) {
+          faceMesh.morphTargetInfluences[browOuterUpL] = 0.045 * (0.5 + 0.5 * Math.sin(t * 1.2 + 3)) + 0.006 * Math.random() + 1.5 * (randomFaceState.browOuterUpL.value || 0);
+        }
+      }
+      if (typeof browOuterUpR === 'number') {
+        if (faceMesh && faceMesh.morphTargetInfluences) {
+          faceMesh.morphTargetInfluences[browOuterUpR] = 0.045 * (0.5 + 0.5 * Math.sin(t * 0.8 + 4)) + 0.006 * Math.random() + 1.5 * (randomFaceState.browOuterUpR.value || 0);
+        }
+      }
       // Lips: more expressive in idle (even slower)
-      const mouthPressL = faceMesh.morphTargetDictionary["mouthPress_L"]
-      const mouthPressR = faceMesh.morphTargetDictionary["mouthPress_R"]
-      const mouthStretchL = faceMesh.morphTargetDictionary["mouthStretch_L"]
-      const mouthStretchR = faceMesh.morphTargetDictionary["mouthStretch_R"]
-      if (typeof mouthPressL === 'number') faceMesh.morphTargetInfluences[mouthPressL] = 0.0075 * Math.abs(Math.sin(t * 1.3 + 1)) * Math.random()
-      if (typeof mouthPressR === 'number') faceMesh.morphTargetInfluences[mouthPressR] = 0.0075 * Math.abs(Math.sin(t * 1.4 + 2)) * Math.random()
-      if (typeof mouthStretchL === 'number') faceMesh.morphTargetInfluences[mouthStretchL] = 0.006 * Math.abs(Math.sin(t * 1.1 + 3)) * Math.random()
-      if (typeof mouthStretchR === 'number') faceMesh.morphTargetInfluences[mouthStretchR] = 0.006 * Math.abs(Math.sin(t * 1.2 + 4)) * Math.random()
+      const mouthPressL = faceMesh?.morphTargetDictionary?.["mouthPress_L"] ?? 0;
+      const mouthPressR = faceMesh?.morphTargetDictionary?.["mouthPress_R"] ?? 0;
+      const mouthStretchL = faceMesh?.morphTargetDictionary?.["mouthStretch_L"] ?? 0;
+      const mouthStretchR = faceMesh?.morphTargetDictionary?.["mouthStretch_R"] ?? 0;
+      if (typeof mouthPressL === 'number') {
+        if (faceMesh && faceMesh.morphTargetInfluences) {
+          faceMesh.morphTargetInfluences[mouthPressL] = 0.0075 * Math.abs(Math.sin(t * 1.3 + 1)) * Math.random();
+        }
+      }
+      if (typeof mouthPressR === 'number') {
+        if (faceMesh && faceMesh.morphTargetInfluences) {
+          faceMesh.morphTargetInfluences[mouthPressR] = 0.0075 * Math.abs(Math.sin(t * 1.4 + 2)) * Math.random();
+        }
+      }
+      if (typeof mouthStretchL === 'number') {
+        if (faceMesh && faceMesh.morphTargetInfluences) {
+          faceMesh.morphTargetInfluences[mouthStretchL] = 0.006 * Math.abs(Math.sin(t * 1.1 + 3)) * Math.random();
+        }
+      }
+      if (typeof mouthStretchR === 'number') {
+        if (faceMesh && faceMesh.morphTargetInfluences) {
+          faceMesh.morphTargetInfluences[mouthStretchR] = 0.006 * Math.abs(Math.sin(t * 1.2 + 4)) * Math.random();
+        }
+      }
       // Smile: more expressive in idle (even slower)
-      const smileL = faceMesh.morphTargetDictionary["mouthSmile_L"]
-      const smileR = faceMesh.morphTargetDictionary["mouthSmile_R"]
-      if (typeof smileL === 'number') faceMesh.morphTargetInfluences[smileL] = 0.18 + 0.045 * Math.sin(t * 0.7 + 1) + 1.5 * (randomFaceState.mouthSmileL.value || 0)
-      if (typeof smileR === 'number') faceMesh.morphTargetInfluences[smileR] = 0.18 + 0.045 * Math.sin(t * 0.7 + 2) + 1.5 * (randomFaceState.mouthSmileR.value || 0)
-      const mouthFrownL = faceMesh.morphTargetDictionary["mouthFrown_L"]
-      const mouthFrownR = faceMesh.morphTargetDictionary["mouthFrown_R"]
-      if (typeof mouthFrownL === 'number') faceMesh.morphTargetInfluences[mouthFrownL] = 1.5 * (randomFaceState.mouthFrownL.value || 0)
-      if (typeof mouthFrownR === 'number') faceMesh.morphTargetInfluences[mouthFrownR] = 1.5 * (randomFaceState.mouthFrownR.value || 0)
+      const smileL = faceMesh?.morphTargetDictionary?.["mouthSmile_L"] ?? 0;
+      const smileR = faceMesh?.morphTargetDictionary?.["mouthSmile_R"] ?? 0;
+      if (typeof smileL === 'number') {
+        if (faceMesh && faceMesh.morphTargetInfluences) {
+          faceMesh.morphTargetInfluences[smileL] = 0.18 + 0.045 * Math.sin(t * 0.7 + 1) + 1.5 * (randomFaceState.mouthSmileL.value || 0);
+        }
+      }
+      if (typeof smileR === 'number') {
+        if (faceMesh && faceMesh.morphTargetInfluences) {
+          faceMesh.morphTargetInfluences[smileR] = 0.18 + 0.045 * Math.sin(t * 0.7 + 2) + 1.5 * (randomFaceState.mouthSmileR.value || 0);
+        }
+      }
+      const mouthFrownL = faceMesh?.morphTargetDictionary?.["mouthFrown_L"] ?? 0;
+      const mouthFrownR = faceMesh?.morphTargetDictionary?.["mouthFrown_R"] ?? 0;
+      if (typeof mouthFrownL === 'number') {
+        if (faceMesh && faceMesh.morphTargetInfluences) {
+          faceMesh.morphTargetInfluences[mouthFrownL] = 1.5 * (randomFaceState.mouthFrownL.value || 0);
+        }
+      }
+      if (typeof mouthFrownR === 'number') {
+        if (faceMesh && faceMesh.morphTargetInfluences) {
+          faceMesh.morphTargetInfluences[mouthFrownR] = 1.5 * (randomFaceState.mouthFrownR.value || 0);
+        }
+      }
       // Eyes: more expressive in idle (even slower)
-      const eyeWideL = faceMesh.morphTargetDictionary["eyeWide_L"]
-      const eyeWideR = faceMesh.morphTargetDictionary["eyeWide_R"]
-      const eyeSquintL = faceMesh.morphTargetDictionary["eyeSquint_L"]
-      const eyeSquintR = faceMesh.morphTargetDictionary["eyeSquint_R"]
+      const eyeWideL = faceMesh?.morphTargetDictionary?.["eyeWide_L"] ?? 0;
+      const eyeWideR = faceMesh?.morphTargetDictionary?.["eyeWide_R"] ?? 0;
+      const eyeSquintL = faceMesh?.morphTargetDictionary?.["eyeSquint_L"] ?? 0;
+      const eyeSquintR = faceMesh?.morphTargetDictionary?.["eyeSquint_R"] ?? 0;
       
-      const eyeBlinkL = faceMesh.morphTargetDictionary["yeBlink_L"]
-      const eyeBlinkR = faceMesh.morphTargetDictionary["yeBlink_R"]
+      const eyeBlinkL = faceMesh?.morphTargetDictionary?.["yeBlink_L"] ?? 0;
+      const eyeBlinkR = faceMesh?.morphTargetDictionary?.["yeBlink_R"] ?? 0;
 
       
-      if (typeof eyeWideL === 'number') faceMesh.morphTargetInfluences[eyeWideL] = 0.12 + 0.015 * Math.sin(t * 0.6 + 1)+ 1.5 * (randomFaceState.eyeWideL.value || 0)
-      if (typeof eyeWideR === 'number') faceMesh.morphTargetInfluences[eyeWideR] = 0.12 + 0.015 * Math.sin(t * 0.6 + 2)+ 1.5 * (randomFaceState.eyeWideR.value || 0)
-      if (typeof eyeSquintL === 'number') faceMesh.morphTargetInfluences[eyeSquintL] = 0.015 + 0.015 * Math.sin(t * 0.5 + 1)+ 1.5 * (randomFaceState.eyeSquintL.value || 0)
-      if (typeof eyeSquintR === 'number') faceMesh.morphTargetInfluences[eyeSquintR] = 0.015 + 0.015 * Math.sin(t * 0.5 + 2)+ 1.5 * (randomFaceState.eyeSquintR.value || 0)
+      if (typeof eyeWideL === 'number') {
+        if (faceMesh && faceMesh.morphTargetInfluences) {
+          faceMesh.morphTargetInfluences[eyeWideL] = 0.12 + 0.015 * Math.sin(t * 0.6 + 1)+ 1.5 * (randomFaceState.eyeWideL.value || 0);
+        }
+      }
+      if (typeof eyeWideR === 'number') {
+        if (faceMesh && faceMesh.morphTargetInfluences) {
+          faceMesh.morphTargetInfluences[eyeWideR] = 0.12 + 0.015 * Math.sin(t * 0.6 + 2)+ 1.5 * (randomFaceState.eyeWideR.value || 0);
+        }
+      }
+      if (typeof eyeSquintL === 'number') {
+        if (faceMesh && faceMesh.morphTargetInfluences) {
+          faceMesh.morphTargetInfluences[eyeSquintL] = 0.015 + 0.015 * Math.sin(t * 0.5 + 1)+ 1.5 * (randomFaceState.eyeSquintL.value || 0);
+        }
+      }
+      if (typeof eyeSquintR === 'number') {
+        if (faceMesh && faceMesh.morphTargetInfluences) {
+          faceMesh.morphTargetInfluences[eyeSquintR] = 0.015 + 0.015 * Math.sin(t * 0.5 + 2)+ 1.5 * (randomFaceState.eyeSquintR.value || 0);
+        }
+      }
       
-       if (typeof eyeSquintL === 'number') faceMesh.morphTargetInfluences[eyeBlinkL] = 0.015 + 0.015 * Math.sin(t * 0.5 + 1)+ 1.5 * (randomFaceState.eyeBlinkL.value || 0)
-      if (typeof eyeSquintR === 'number') faceMesh.morphTargetInfluences[eyeBlinkR] = 0.015 + 0.015 * Math.sin(t * 0.5 + 2)+ 1.5 * (randomFaceState.eyeBlinkR.value || 0)
+       if (typeof eyeSquintL === 'number') {
+        if (faceMesh && faceMesh.morphTargetInfluences) {
+          faceMesh.morphTargetInfluences[eyeBlinkL] = 0.015 + 0.015 * Math.sin(t * 0.5 + 1)+ 1.5 * (randomFaceState.eyeBlinkL.value || 0);
+        }
+      }
+      if (typeof eyeSquintR === 'number') {
+        if (faceMesh && faceMesh.morphTargetInfluences) {
+          faceMesh.morphTargetInfluences[eyeBlinkR] = 0.015 + 0.015 * Math.sin(t * 0.5 + 2)+ 1.5 * (randomFaceState.eyeBlinkR.value || 0);
+        }
+      }
       
       
       // --- INTERACTIVE GAZE USING MORPH TARGETS ---
@@ -497,27 +663,35 @@ const animate = () => {
       gaze.x = Math.max(-1, Math.min(1, gaze.x));
       gaze.y = Math.max(-1, Math.min(1, gaze.y));
       if (typeof eyeLookInL === 'number' && typeof eyeLookOutL === 'number') {
-        faceMesh.morphTargetInfluences[eyeLookInL] = Math.max(0, -gaze.x);
-        faceMesh.morphTargetInfluences[eyeLookOutL] = Math.max(0, gaze.x);
+        if (faceMesh && faceMesh.morphTargetInfluences) {
+          faceMesh.morphTargetInfluences[eyeLookInL] = Math.max(0, -gaze.x);
+          faceMesh.morphTargetInfluences[eyeLookOutL] = Math.max(0, gaze.x);
         }
+      }
       if (typeof eyeLookInR === 'number' && typeof eyeLookOutR === 'number') {
-        faceMesh.morphTargetInfluences[eyeLookInR] = Math.max(0, -gaze.x);
-        faceMesh.morphTargetInfluences[eyeLookOutR] = Math.max(0, gaze.x);
-       }
+        if (faceMesh && faceMesh.morphTargetInfluences) {
+          faceMesh.morphTargetInfluences[eyeLookInR] = Math.max(0, -gaze.x);
+          faceMesh.morphTargetInfluences[eyeLookOutR] = Math.max(0, gaze.x);
+        }
+      }
       if (typeof eyeLookUpL === 'number' && typeof eyeLookDownL === 'number') {
-        faceMesh.morphTargetInfluences[eyeLookUpL] = Math.max(0, gaze.y);
-        faceMesh.morphTargetInfluences[eyeLookDownL] = 0.7;
-       }
+        if (faceMesh && faceMesh.morphTargetInfluences) {
+          faceMesh.morphTargetInfluences[eyeLookUpL] = Math.max(0, gaze.y);
+          faceMesh.morphTargetInfluences[eyeLookDownL] = 0.7;
+        }
+      }
       if (typeof eyeLookUpR === 'number' && typeof eyeLookDownR === 'number') {
-        faceMesh.morphTargetInfluences[eyeLookUpR] = Math.max(0, gaze.y);
-        faceMesh.morphTargetInfluences[eyeLookDownR] = 0.7;
+        if (faceMesh && faceMesh.morphTargetInfluences) {
+          faceMesh.morphTargetInfluences[eyeLookUpR] = Math.max(0, gaze.y);
+          faceMesh.morphTargetInfluences[eyeLookDownR] = 0.7;
+        }
       }
     }
 
     // --- 2. Eyes: natural blinking ---
     const now = Date.now()
-    const blinkL = faceMesh.morphTargetDictionary["eyeBlink_L"]
-    const blinkR = faceMesh.morphTargetDictionary["eyeBlink_R"]
+    const blinkL = faceMesh?.morphTargetDictionary?.["eyeBlink_L"] ?? 0;
+    const blinkR = faceMesh?.morphTargetDictionary?.["eyeBlink_R"] ?? 0;
     if (now > nextBlinkTime && !isBlinking) {
       isBlinking = true
       lastBlink = now
@@ -527,45 +701,97 @@ const animate = () => {
       let t = (now - lastBlink) / blinkDuration
       let blinkValue = t < 0.5 ? t * 2 : (1 - t) * 2
       blinkValue = Math.max(0, Math.min(1, blinkValue))
-      if (typeof blinkL === 'number') faceMesh.morphTargetInfluences[blinkL] = blinkValue
-      if (typeof blinkR === 'number') faceMesh.morphTargetInfluences[blinkR] = blinkValue
+      if (typeof blinkL === 'number') {
+        if (faceMesh && faceMesh.morphTargetInfluences) {
+          faceMesh.morphTargetInfluences[blinkL] = blinkValue;
+        }
+      }
+      if (typeof blinkR === 'number') {
+        if (faceMesh && faceMesh.morphTargetInfluences) {
+          faceMesh.morphTargetInfluences[blinkR] = blinkValue;
+        }
+      }
       if (t >= 1) {
         isBlinking = false
         nextBlinkTime = now + 2000 + Math.random() * 2000
-        if (typeof blinkL === 'number') faceMesh.morphTargetInfluences[blinkL] = 0
-        if (typeof blinkR === 'number') faceMesh.morphTargetInfluences[blinkR] = 0
+        if (typeof blinkL === 'number') {
+          if (faceMesh && faceMesh.morphTargetInfluences) {
+            faceMesh.morphTargetInfluences[blinkL] = 0;
+          }
+        }
+        if (typeof blinkR === 'number') {
+          if (faceMesh && faceMesh.morphTargetInfluences) {
+            faceMesh.morphTargetInfluences[blinkR] = 0;
+          }
+        }
       }
     } else {
-      if (typeof blinkL === 'number') faceMesh.morphTargetInfluences[blinkL] = 0
-      if (typeof blinkR === 'number') faceMesh.morphTargetInfluences[blinkR] = 0
+      if (typeof blinkL === 'number') {
+        if (faceMesh && faceMesh.morphTargetInfluences) {
+          faceMesh.morphTargetInfluences[blinkL] = 0;
+        }
+      }
+      if (typeof blinkR === 'number') {
+        if (faceMesh && faceMesh.morphTargetInfluences) {
+          faceMesh.morphTargetInfluences[blinkR] = 0;
+        }
+      }
     }
 
     // --- 3. Brows: subtle up/down at start/end of speech ---
     // Only apply browRaiseLevel to browInnerUp and outer brows if not idle
     if ((props.isSpeaking || props.isListening) && browRaiseLevel !== undefined) {
-      const browInnerUp = faceMesh.morphTargetDictionary["browInnerUp"]
-      if (typeof browInnerUp === 'number') faceMesh.morphTargetInfluences[browInnerUp] = browRaiseLevel
+      const browInnerUp = faceMesh?.morphTargetDictionary?.["browInnerUp"] ?? 0;
+      if (typeof browInnerUp === 'number') {
+        if (faceMesh && faceMesh.morphTargetInfluences) {
+          faceMesh.morphTargetInfluences[browInnerUp] = browRaiseLevel;
+        }
+      }
       // Optionally, add a little to outer brows
-      const browOuterUpL = faceMesh.morphTargetDictionary["browOuterUp_L"]
-      const browOuterUpR = faceMesh.morphTargetDictionary["browOuterUp_R"]
-      if (typeof browOuterUpL === 'number') faceMesh.morphTargetInfluences[browOuterUpL] += browRaiseLevel * 0.5
-      if (typeof browOuterUpR === 'number') faceMesh.morphTargetInfluences[browOuterUpR] += browRaiseLevel * 0.5
+      const browOuterUpL = faceMesh?.morphTargetDictionary?.["browOuterUp_L"] ?? 0;
+      const browOuterUpR = faceMesh?.morphTargetDictionary?.["browOuterUp_R"] ?? 0;
+      if (typeof browOuterUpL === 'number') {
+        if (faceMesh && faceMesh.morphTargetInfluences) {
+          faceMesh.morphTargetInfluences[browOuterUpL] += browRaiseLevel * 0.5;
+        }
+      }
+      if (typeof browOuterUpR === 'number') {
+        if (faceMesh && faceMesh.morphTargetInfluences) {
+          faceMesh.morphTargetInfluences[browOuterUpR] += browRaiseLevel * 0.5;
+        }
+      }
     }
     // --- 4. Smile: small smile at end of speech ---
     // Only apply smileLevel to mouthSmile_L/R if not idle
     if ((props.isSpeaking || props.isListening) && smileLevel !== undefined) {
-      const smileL = faceMesh.morphTargetDictionary["mouthSmile_L"]
-      const smileR = faceMesh.morphTargetDictionary["mouthSmile_R"]
-      if (typeof smileL === 'number') faceMesh.morphTargetInfluences[smileL] += smileLevel
-      if (typeof smileR === 'number') faceMesh.morphTargetInfluences[smileR] += smileLevel
+      const smileL = faceMesh?.morphTargetDictionary?.["mouthSmile_L"] ?? 0;
+      const smileR = faceMesh?.morphTargetDictionary?.["mouthSmile_R"] ?? 0;
+      if (typeof smileL === 'number') {
+        if (faceMesh && faceMesh.morphTargetInfluences) {
+          faceMesh.morphTargetInfluences[smileL] += smileLevel;
+        }
+      }
+      if (typeof smileR === 'number') {
+        if (faceMesh && faceMesh.morphTargetInfluences) {
+          faceMesh.morphTargetInfluences[smileR] += smileLevel;
+        }
+      }
     }
 
     // --- 1c. Add subtle smile/frown micro-movement during speech ---
     if (props.isSpeaking && typeof props.mouthOpenLevel === 'number') {
-      const smileL = faceMesh.morphTargetDictionary["mouthSmile_L"]
-      const smileR = faceMesh.morphTargetDictionary["mouthSmile_R"]
-      if (typeof smileL === 'number') faceMesh.morphTargetInfluences[smileL] = 0.08 * Math.abs(Math.sin(t * 2.1 + Math.random() * 2));
-      if (typeof smileR === 'number') faceMesh.morphTargetInfluences[smileR] = 0.08 * Math.abs(Math.sin(t * 2.2 + Math.random() * 2));
+      const smileL = faceMesh?.morphTargetDictionary?.["mouthSmile_L"] ?? 0;
+      const smileR = faceMesh?.morphTargetDictionary?.["mouthSmile_R"] ?? 0;
+      if (typeof smileL === 'number') {
+        if (faceMesh && faceMesh.morphTargetInfluences) {
+          faceMesh.morphTargetInfluences[smileL] = 0.08 * Math.abs(Math.sin(t * 2.1 + Math.random() * 2));
+        }
+      }
+      if (typeof smileR === 'number') {
+        if (faceMesh && faceMesh.morphTargetInfluences) {
+          faceMesh.morphTargetInfluences[smileR] = 0.08 * Math.abs(Math.sin(t * 2.2 + Math.random() * 2));
+        }
+      }
     }
   }
 
@@ -580,16 +806,13 @@ const updateAvatarAppearance = () => {
 
   // Update colors based on config
   avatar.children.forEach((child) => {
-    if (child instanceof THREE.Mesh) {
-      if (child.material instanceof THREE.MeshPhongMaterial) {
-        // Update materials based on avatar config
-        if (child.geometry instanceof THREE.SphereGeometry) {
-          // Head or hair
-          if (child.position.y > 0.6 && props.avatarConfig.hairColor) {
-            child.material.color.setHex(parseInt(props.avatarConfig.hairColor.replace('#', '0x')))
-          } else if (child.position.y > 0.4 && props.avatarConfig.skinTone) {
-            child.material.color.setHex(parseInt(props.avatarConfig.skinTone.replace('#', '0x')))
-          }
+    const mesh = child as THREE.Mesh;
+    if (mesh.material instanceof THREE.MeshPhongMaterial) {
+      if (mesh.geometry instanceof THREE.SphereGeometry) {
+        if (mesh.position.y > 0.6 && props.avatarConfig.hairColor) {
+          mesh.material.color.setHex(parseInt(props.avatarConfig.hairColor.replace('#', '0x')))
+        } else if (mesh.position.y > 0.4 && props.avatarConfig.skinTone) {
+          mesh.material.color.setHex(parseInt(props.avatarConfig.skinTone.replace('#', '0x')))
         }
       }
     }

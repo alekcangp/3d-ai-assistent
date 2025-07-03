@@ -24,8 +24,6 @@
 </template>
 
 <script setup lang="ts">
-import { computed } from 'vue'
-
 const props = defineProps<{
   isListening: boolean
   isProcessing: boolean

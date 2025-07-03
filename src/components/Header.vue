@@ -57,10 +57,6 @@ const props = defineProps({
 })
 const emit = defineEmits(['toggleTheme', 'toggleCustomization', 'updateLang', 'toggleOnline'])
 
-function onLangChange(event: Event) {
-  emit('updateLang', (event.target as HTMLSelectElement).value)
-}
-
 const mcpServers = [
   { name: 'Only LLM knowledge', value: null },
   { name: 'CoinGecko', value: 'https://mcp.api.coingecko.com/sse' },
