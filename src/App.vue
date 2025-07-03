@@ -138,7 +138,7 @@ const { initializeAI } = useAI()
 const { startListening, stopListening, speak, stopSpeaking } = useSpeech()
 
 // Add at the top of the script setup
-const API_URL = import.meta.env.VITE_API_URL || 'https://threed-ai-assistent.onrender.com'
+const API_URL = (import.meta.env.VITE_API_URL || 'https://threed-ai-assistent.onrender.com').replace(/\/$/, '')
 
 // Methods
 const toggleTheme = () => {
