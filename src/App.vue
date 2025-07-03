@@ -137,6 +137,9 @@ const { saveToStorage, loadFromStorage } = useLocalStorage()
 const { initializeAI } = useAI()
 const { startListening, stopListening, speak, stopSpeaking } = useSpeech()
 
+// Add at the top of the script setup
+const API_URL = import.meta.env.VITE_API_URL || 'https://threed-ai-assistent.onrender.com'
+
 // Methods
 const toggleTheme = () => {
   isDarkMode.value = !isDarkMode.value
@@ -167,7 +170,7 @@ async function sendToIOIntel(message: string) {
   // Always use the selected language from personalityConfig.lang
   let langToSend = personalityConfig.value.lang
   if (!langToSend || langToSend === 'system') langToSend = navigator.language
-  const res = await fetch('http://localhost:8000/chat', {
+  const res = await fetch(`${API_URL}/chat`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({
@@ -324,7 +327,7 @@ onMounted(async () => {
   // Fetch models and set default to second model if first load
   try {
     loadingProgress.value = 10
-    const res = await fetch('http://localhost:8000/models')
+    const res = await fetch(`${API_URL}/models`)
     const data = await res.json()
     const models = data.models || []
     if (isFirstLoad && models.length > 1) {
