@@ -3,4 +3,4 @@ uvicorn
 python-dotenv
 iointel
 fastmcp
-pydantic==1.10.14 
+pydantic 
