@@ -1,9 +1,5 @@
 <template>
   <div class="chat-interface">
-    <div class="chat-header">
-      <h3>Chat with your AI Assistant</h3>
-    </div>
-    
     <div class="messages-container" ref="messagesContainer">
       <div 
         v-for="message in messages"
@@ -50,8 +46,8 @@
           :disabled="!inputText.trim() || isProcessing"
           class="send-button"
         >
-          <svg width="20" height="20" viewBox="0 0 24 24" fill="currentColor">
-            <path d="M2,21L23,12L2,3V10L17,12L2,14V21Z" />
+          <svg viewBox="0 0 22 32" fill="currentColor" class="send-icon">
+            <path d="M3,28L29,16L3,4V12L23,16L3,20V28Z" />
           </svg>
         </button>
       </div>
@@ -253,28 +249,47 @@ watch(() => props.isProcessing, scrollToBottom)
 }
 
 .send-button {
-  background: #3b82f6;
-  color: white;
+  background: linear-gradient(90deg, #3b82f6 0%, #6366f1 100%);
+  color: #fff;
   border: none;
-  border-radius: 50%;
-  width: 40px;
-  height: 40px;
+  border-radius: 18px;
+  width: 54px;
+  height: 44px;
   display: flex;
   align-items: center;
   justify-content: center;
   cursor: pointer;
-  transition: all 0.2s ease;
+  transition: background 0.18s, box-shadow 0.18s, transform 0.18s, filter 0.18s;
+  box-shadow: 0 2px 8px rgba(59, 130, 246, 0.10);
+  font-size: 1.15rem;
+  outline: none;
+  overflow: visible;
+  padding:0
 }
 
-.send-button:hover:not(:disabled) {
-  background: #2563eb;
-  transform: scale(1.05);
+.send-button:hover:not(:disabled), .send-button:focus-visible:not(:disabled) {
+  filter: brightness(1.15);
+  box-shadow: 0 4px 16px rgba(59, 130, 246, 0.18);
+  transform: scale(1.08);
+}
+
+.send-button:active:not(:disabled) {
+  filter: brightness(0.95);
+  transform: scale(0.98);
 }
 
 .send-button:disabled {
   opacity: 0.5;
   cursor: not-allowed;
+  filter: grayscale(0.3);
+  box-shadow: none;
   transform: none;
+}
+
+.dark .send-button {
+  background: linear-gradient(90deg, #2563eb 0%, #6366f1 100%);
+  color: #f9fafb;
+  box-shadow: 0 2px 8px rgba(99, 102, 241, 0.13);
 }
 
 @keyframes fadeIn {
@@ -285,5 +300,12 @@ watch(() => props.isProcessing, scrollToBottom)
 @keyframes typing {
   0%, 60%, 100% { transform: translateY(0); }
   30% { transform: translateY(-10px); }
+}
+
+.send-icon {
+  width: 28px;
+  height: 18px;
+  display: block;
+  margin: 0 auto;
 }
 </style>

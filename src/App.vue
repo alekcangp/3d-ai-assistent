@@ -36,6 +36,14 @@
 
         <!-- Chat Interface -->
         <div class="chat-section">
+          <div class="chat-header-row">
+            <button class="reset-chat-btn" @click="resetChat" title="Clear all chat history" type="button">
+              <svg viewBox="0 0 24 24" fill="currentColor" class="reset-icon">
+                <path d="M9 3a3 3 0 0 1 6 0h5a1 1 0 1 1 0 2h-1.1l-.86 14.02A3 3 0 0 1 15.05 22h-6.1a3 3 0 0 1-2.99-2.98L5.1 5H4a1 1 0 1 1 0-2h5zm2 0a1 1 0 1 1 2 0h-2zm-3.9 2l.85 13.98A1 1 0 0 0 8.95 20h6.1a1 1 0 0 0 .99-.98L16.9 5H7.1z"/>
+              </svg>
+              Reset Chat
+            </button>
+          </div>
           <ChatInterface
             :messages="messages"
             :isProcessing="isProcessing"
@@ -254,7 +262,7 @@ const handleMessage = async (content: string) => {
     if (!(error && (error.name === 'AbortError' || error.message === 'cancelled' || error.message === 'canceled'))) {
       const errorMessage: Message = {
         id: (Date.now() + 1).toString(),
-        content: 'Sorry, I encountered an error processing your request.',
+        content: 'I encountered an error processing your request.',
         role: 'assistant',
         timestamp: new Date()
       }
@@ -452,6 +460,11 @@ function onUpdateModel(model: string) {
   selectedModel.value = model
   saveToStorage('selectedModel', model)
 }
+
+const resetChat = () => {
+  messages.value = [];
+  saveToStorage('messages', []);
+}
 </script>
 
 <style scoped>
@@ -494,6 +507,71 @@ function onUpdateModel(model: string) {
 .dark .chat-section {
   background: rgba(45, 55, 72, 0.95);
   border: 1px solid rgba(255, 255, 255, 0.1);
+}
+
+.chat-header-row {
+  display: flex;
+  justify-content: flex-end;
+  margin-bottom: 0.5rem;
+}
+
+.reset-chat-btn {
+  background: linear-gradient(90deg, #f3f4f6 0%, #e5e7eb 100%);
+  color: #374151;
+  border: none;
+  border-radius: 14px;
+  padding: 0.22rem 0.7rem 0.22rem 0.6rem;
+  font-size: 0.92rem;
+  font-weight: 500;
+  cursor: pointer;
+  transition: background 0.18s, box-shadow 0.18s, transform 0.18s, filter 0.18s, color 0.18s;
+  display: flex;
+  align-items: center;
+  gap: 0.35rem;
+  box-shadow: 0 1px 4px rgba(100, 116, 139, 0.08);
+  outline: none;
+}
+
+.reset-icon {
+  width: 19px;
+  height: 19px;
+  display: block;
+  color: #6b7280;
+  transition: color 0.18s;
+}
+
+.reset-chat-btn:hover:not(:disabled), .reset-chat-btn:focus-visible:not(:disabled) {
+  background: linear-gradient(90deg, #e5e7eb 0%, #d1d5db 100%);
+  color: #111827;
+  box-shadow: 0 4px 16px rgba(100, 116, 139, 0.13);
+  transform: scale(1.08);
+}
+
+.reset-chat-btn:hover .reset-icon, .reset-chat-btn:focus-visible .reset-icon {
+  color: #374151;
+}
+
+.reset-chat-btn:active:not(:disabled) {
+  filter: brightness(0.97);
+  transform: scale(0.98);
+}
+
+.reset-chat-btn:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+  filter: grayscale(0.3);
+  box-shadow: none;
+  transform: none;
+}
+
+.dark .reset-chat-btn {
+  background: linear-gradient(90deg, #374151 0%, #4b5563 100%);
+  color: #f3f4f6;
+  box-shadow: 0 2px 8px rgba(100, 116, 139, 0.13);
+}
+
+.dark .reset-icon {
+  color: #d1d5db;
 }
 
 @media (max-width: 1024px) {

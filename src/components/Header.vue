@@ -50,6 +50,7 @@
 
 <script setup lang="ts">
 import { defineProps, defineEmits, computed } from 'vue'
+import { mcpServers } from '../constants/mcpServers'
 
 const props = defineProps({
   isDarkMode: Boolean,
@@ -68,13 +69,6 @@ const props = defineProps({
   }
 })
 const emit = defineEmits(['toggleTheme', 'toggleCustomization', 'updateLang', 'toggleOnline'])
-
-const mcpServers = [
-  { name: 'Only LLM knowledge', value: null },
-  { name: 'CoinGecko', value: 'https://mcp.api.coingecko.com/sse' },
-  { name: 'Fetch', value: 'https://remote.mcpservers.org/fetch/mcp' },
-  { name: 'Sequential Thinking', value: 'https://remote.mcpservers.org/sequentialthinking/mcp' }
-]
 
 const selectedMcpServerName = computed(() => {
   if (!props.selectedMcpServer) return 'LLM only'

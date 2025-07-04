@@ -1,6 +1,6 @@
 <template>
-  <div class="customization-overlay">
-    <div class="customization-panel">
+  <div class="customization-overlay" @click="onOverlayClick">
+    <div class="customization-panel" ref="panelRef">
       <div class="panel-header">
         <h2>Customize Your Assistant</h2>
         <button class="close-button" @click="$emit('close')">
@@ -23,13 +23,26 @@
             <div v-if="modelLoading" class="model-loading">Loading models...</div>
             <div v-if="modelError" class="model-error">{{ modelError }}</div>
             <div v-if="selectedModel">
-              <small>{{ modelList.find(m => m.id === selectedModel)?.description }}</small>
+              <div class="mcp-description">{{ modelList.find(m => m.id === selectedModel)?.description }}</div>
             </div>
           </div>
         </div>
 
         <div class="customization-section">
-          <h3>MCP Server</h3>
+          <div class="mcp-header-with-info">
+            <h3 style="margin: 0;">MCP Server</h3>
+            <button class="mcp-info-btn" @click="showMcpInfo = !showMcpInfo" aria-label="What is MCP?" type="button" tabindex="0">
+              <svg width="20" height="20" viewBox="0 0 20 20" fill="none" aria-hidden="true">
+                <circle cx="10" cy="10" r="9" stroke="#6b7280" stroke-width="2" fill="#fff"/>
+                <path d="M10 7.5a1 1 0 1 0 0-2 1 1 0 0 0 0 2zm-1 2.25c0-.414.336-.75.75-.75h.5c.414 0 .75.336.75.75v4c0 .414-.336.75-.75.75h-.5a.75.75 0 0 1-.75-.75v-4z" fill="#6b7280"/>
+              </svg>
+            </button>
+            <transition name="fade">
+              <div v-if="showMcpInfo" class="mcp-info-tooltip" role="tooltip">
+                The Model Context Protocol (MCP) is an open standard that enables AI assistants to securely connect to external data sources and tools.
+              </div>
+            </transition>
+          </div>
           <div class="control-group">
             <label for="mcp-select">MCP Server</label>
             <select id="mcp-select" v-model="selectedMcp" @change="updateMcpServer">
@@ -239,8 +252,9 @@
 </template>
 
 <script setup lang="ts">
-import { ref, watch, onMounted, computed } from 'vue'
+import { ref, watch, onMounted, computed, onBeforeUnmount } from 'vue'
 import type { AvatarConfig, PersonalityConfig } from '../types'
+import { mcpServers } from '../constants/mcpServers'
 
 const props = defineProps<{
   avatarConfig: AvatarConfig
@@ -280,30 +294,12 @@ const modelList = ref<{id: string, name: string, description: string}[]>([])
 const modelLoading = ref(false)
 const modelError = ref('')
 
-const mcpServers = [
-  {
-    name: 'Only LLM knowledge',
-    value: null,
-    description: 'Use only the LLM\'s internal knowledge. No real-time data.'
-  },
-  {
-    name: 'CoinGecko',
-    value: 'https://mcp.api.coingecko.com/sse',
-    description: 'CoinGecko is a cryptocurrency data platform.'
-  },
-  {
-    name: 'Fetch',
-    value: 'https://remote.mcpservers.org/fetch/mcp',
-    description: 'An MCP server that provides web content fetching capabilities. This server enables LLMs to retrieve and process content from web pages, converting HTML to markdown for easier consumption.'
-  },
-  {
-    name: 'Sequential Thinking',
-    value: 'https://remote.mcpservers.org/sequentialthinking/mcp',
-    description: 'An MCP server implementation that provides a tool for dynamic and reflective problem-solving through a structured thinking process.'
-  }
-]
 const selectedMcp = ref(props.selectedMcpServer ?? mcpServers[0].value)
 const selectedMcpObj = computed(() => mcpServers.find(s => s.value === selectedMcp.value))
+
+const panelRef = ref<HTMLElement | null>(null)
+
+const showMcpInfo = ref(false)
 
 onMounted(async () => {
   modelLoading.value = true
@@ -449,6 +445,35 @@ watch(
   },
   { immediate: true }
 )
+
+function onOverlayClick(event: MouseEvent) {
+  // Only close if click is outside the panel
+  if (panelRef.value && !panelRef.value.contains(event.target as Node)) {
+    emit('close')
+  }
+}
+
+// Close MCP info tooltip when clicking outside
+function handleClickOutsideMcpInfo(event: MouseEvent) {
+  const infoBtn = document.querySelector('.mcp-info-btn');
+  const tooltip = document.querySelector('.mcp-info-tooltip');
+  if (
+    showMcpInfo.value &&
+    tooltip &&
+    !tooltip.contains(event.target as Node) &&
+    infoBtn &&
+    !infoBtn.contains(event.target as Node)
+  ) {
+    showMcpInfo.value = false;
+  }
+}
+
+onMounted(() => {
+  window.addEventListener('mousedown', handleClickOutsideMcpInfo);
+});
+onBeforeUnmount(() => {
+  window.removeEventListener('mousedown', handleClickOutsideMcpInfo);
+});
 </script>
 
 <style scoped>
@@ -716,5 +741,74 @@ watch(
   font-size: 0.875rem;
   color: #6b7280;
   margin-top: 0.5rem;
+}
+
+.mcp-header-with-info {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  position: relative;
+  margin-bottom: 0.5rem;
+}
+
+.mcp-info-btn {
+  background: none;
+  border: none;
+  padding: 0;
+  margin-left: 0.25rem;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  color: #6b7280;
+  height: 24px;
+  width: 24px;
+  border-radius: 50%;
+  transition: background 0.15s;
+}
+
+.mcp-info-btn:focus {
+  outline: 2px solid #3b82f6;
+  outline-offset: 2px;
+}
+
+.mcp-info-btn:hover, .mcp-info-btn:focus-visible {
+  background: rgba(59, 130, 246, 0.08);
+}
+
+.mcp-info-btn svg {
+  display: block;
+}
+
+.mcp-info-tooltip {
+  position: absolute;
+  top: 130%;
+  left: 0;
+  background: #fff;
+  color: #374151;
+  border: 1px solid #d1d5db;
+  border-radius: 10px;
+  box-shadow: 0 8px 32px rgba(0,0,0,0.13);
+  padding: 1rem 1.25rem;
+  font-size: 1rem;
+  max-width: 340px;
+  z-index: 20;
+  white-space: normal;
+  line-height: 1.5;
+  margin-top: 0.5rem;
+  animation: fadeIn 0.18s;
+}
+
+.fade-enter-active, .fade-leave-active {
+  transition: opacity 0.18s;
+}
+
+.fade-enter-from, .fade-leave-to {
+  opacity: 0;
+}
+
+.dark .mcp-info-tooltip {
+  background: #374151;
+  color: #f9fafb;
+  border-color: #4b5563;
 }
 </style>

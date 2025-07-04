@@ -109,6 +109,11 @@ async def call_mcp_tool(mcp_url, tool_name, params):
     if not mcp_url:
         # No MCP server selected, do not call any tool
         return None
+    # Map repo_url to repoName if needed
+    if 'repo_url' in params and 'repoName' not in params:
+        m = re.match(r'https://github.com/([^/]+/[^/]+)', params['repo_url'])
+        if m:
+            params['repoName'] = m.group(1)
     try:
         async with Client(mcp_url) as client:
             return await client.call_tool(tool_name, params)
@@ -134,7 +139,6 @@ def extract_first_json(text):
 
 @app.post("/chat")
 async def chat(req: ChatRequest):
-    print("[DEBUG] /chat endpoint called")
     persona = PersonaConfig(
         name=req.traits.name,
         age=req.traits.age,
@@ -158,15 +162,16 @@ async def chat(req: ChatRequest):
     #print("[DEBUG]Received persona traits:", json.dumps(persona.model_dump(), indent=2, ensure_ascii=False))
     model_name = req.model or "meta-llama/Llama-3.3-70B-Instruct"
     mcp_url = req.mcpServer  # None means LLM only
-    print("[DEBUG] Before get_mcp_tools", mcp_url)
+
     try:
         tools_context = await asyncio.wait_for(get_mcp_tools(mcp_url), timeout=15)
     except asyncio.TimeoutError:
         tools_context = "Error: MCP server did not respond in time."
         print("[DEBUG] MCP server timeout.")
-    print("[DEBUG] After get_mcp_tools")
+   
     if isinstance(tools_context, str) and tools_context.startswith("Error:"):
-        return {"response": "Sorry, the external tool server is currently unavailable. Please try again later or use LLM-only mode."}
+        # MCP unavailable: skip tool logic, answer as LLM-only
+        tools_context = "No tools available"
     lang_instruction = ""
     if req.lang:
         lang_instruction = f"Always answer in the language: {req.lang}."
@@ -178,8 +183,8 @@ async def chat(req: ChatRequest):
         '{"tool_call": {"tool": "<tool_name>", "params": {<params>}}}'
         "\nIf no tool is relevant, answer the user's question using your own knowledge as usual. Otherwise, respond with a natural language answer."
     )
-    print(f"[DEBUG] LLM instructions:\n{instructions}")
-    print(f"[DEBUG] MODEL:\n{model_name}")
+    print(f"[DEBUG] Tools:\n{tools_context}")
+
     agent = Agent(
         name=persona.name,
         instructions=instructions,
@@ -193,26 +198,26 @@ async def chat(req: ChatRequest):
         role = "User" if msg.role == "user" else "Assistant"
         prompt += f"{role}: {msg.content}\n"
     prompt += f"User: {req.message}\nAssistant:"
-    print("[DEBUG] Before agent.run")
+   
     response = await agent.run(prompt)
-    print("[DEBUG] After agent.run")
-    print(f"[DEBUG] Initial LLM response: {response}")
+   
+    
     parsed = None
     if isinstance(response, dict) and "result" in response:
         parsed = extract_first_json(response["result"])
-        print(f"[DEBUG] extract_first_json parsed: {parsed}")
+      
         if isinstance(parsed, dict) and "tool_call" in parsed:
             response = parsed
-            print("[DEBUG] Parsed tool_call from string result.")
+           
     elif isinstance(response, str):
         parsed = extract_first_json(response)
-        print(f"[DEBUG] extract_first_json parsed: {parsed}")
+       
         if isinstance(parsed, dict) and "tool_call" in parsed:
             response = parsed
-            print("[DEBUG] Parsed tool_call from string response.")
+           
 
-    print(f"[DEBUG] After parsing, response is: {response}")
-    print(f"[DEBUG] Entering tool call loop with response: {response}")
+    
+ 
     max_tool_loops = 3
     loops = 0
     while isinstance(response, dict) and "tool_call" in response and loops < max_tool_loops:
@@ -236,13 +241,13 @@ async def chat(req: ChatRequest):
             + f"\n[Tool {tool_name} result: {tool_result_str}]\n"
             + "Assistant: Here is the result from the tool above. Now, answer the user's original question in clear, natural language, as if you are speaking to a human. Do NOT output any JSON or tool call. ONLY provide a helpful, conversational answer. If you cannot answer, say you do not have enough information."
         )
-        print(f"[DEBUG] Tool prompt sent to LLM: {tool_prompt}")
+        
         response = await agent.run(tool_prompt)
-        print(f"[DEBUG] LLM response after tool result: {response}")
+       
         loops += 1
         # Safeguard: if LLM outputs another tool call after tool result, break and return fallback
         if isinstance(response, dict) and "tool_call" in response:
-            return {"response": "Sorry, I could not generate a natural language answer after using the tool."}
+            return {"response": "I could not generate a natural language answer after using the tool."}
     # Ensure response is always a string for the frontend
     if isinstance(response, dict):
         main_message = response.get("result") or response.get("output") or str(response)
