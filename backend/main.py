@@ -154,7 +154,7 @@ async def chat(req: ChatRequest):
         conversation_style=req.traits.conversation_style,
         description=req.traits.description,
     )
-    print("[DEBUG]Received persona traits:", json.dumps(persona.dict(), indent=2, ensure_ascii=False))
+    #print("[DEBUG]Received persona traits:", json.dumps(persona.model_dump(), indent=2, ensure_ascii=False))
     model_name = req.model or "meta-llama/Llama-3.3-70B-Instruct"
     mcp_url = req.mcpServer  # None means LLM only
     tools_context = await get_mcp_tools(mcp_url)

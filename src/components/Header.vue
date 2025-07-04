@@ -152,12 +152,6 @@ const selectedMcpServerName = computed(() => {
   background: linear-gradient(90deg, #00fff0 0%, #00b3ff 100%);
   box-shadow: 0 0 12px #00fff0cc;
   opacity: 0.7;
-  animation: scannerMove 2.5s linear infinite;
-}
-@keyframes scannerMove {
-  0% { left: -100%; right: 100%; }
-  50% { left: 0; right: 0; }
-  100% { left: 100%; right: -100%; }
 }
 
 .header-controls {
