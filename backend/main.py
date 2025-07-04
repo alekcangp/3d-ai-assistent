@@ -7,10 +7,8 @@ from dotenv import load_dotenv
 from fastapi.middleware.cors import CORSMiddleware
 from typing import List, Optional
 from fastmcp import Client
-import asyncio
-import logging
-import json
 import re
+import json
 
 # Load environment variables from .env if present
 load_dotenv()

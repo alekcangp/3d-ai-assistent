@@ -1,8 +1,57 @@
-# Vue 3 + TypeScript + Vite
+# 3D AI Assistant
 
-This template should help get you started developing with Vue 3 and TypeScript in Vite. The template uses Vue 3 `<script setup>` SFCs, check out the [script setup docs](https://v3.vuejs.org/api/sfc-script-setup.html#sfc-script-setup) to learn more.
+A modern web application featuring a 3D animated AI avatar with real-time facial animation, voice controls, and chat interface. Built with Vue 3, TypeScript, Three.js, and a Python backend (FastAPI).
 
-Learn more about the recommended Project Setup and IDE Support in the [Vue Docs TypeScript Guide](https://vuejs.org/guide/typescript/overview.html#project-setup).
+## Features
+- 3D avatar rendered with Three.js
+- Realistic facial animation and micro-expressions
+- Voice input and output controls
+- Customizable avatar appearance
+- Chat interface with AI responses
+- Python backend for AI and data processing
+
+## Installation
+
+### Prerequisites
+- Node.js (v16+ recommended)
+- npm
+- Python 3.8+
+
+### Frontend Setup
+```bash
+npm install
+```
+
+### Backend Setup
+```bash
+cd backend
+python -m venv venv
+source venv/bin/activate  # On Windows: venv\Scripts\activate
+pip install -r requirements.txt
+```
+
+## Development
+
+### Start Frontend (Vite)
+```bash
+npm run dev
+```
+
+### Start Backend (FastAPI)
+```bash
+cd backend
+uvicorn main:app --reload
+```
+
+## Build
+To build the frontend for production:
+```bash
+npm run build
+```
+
+
+## License
+MIT License
 
 ---
 

@@ -110,7 +110,7 @@ watch(() => props.isProcessing, scrollToBottom)
 .chat-interface {
   display: flex;
   flex-direction: column;
-  height: 500px;
+  height: calc(100vh - 200px);
   max-height: calc(100vh - 200px);
 }
 

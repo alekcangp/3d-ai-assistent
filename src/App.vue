@@ -4,6 +4,7 @@
       :isDarkMode="isDarkMode" 
       :selectedLang="selectedLang"
       :selectedMcpServer="selectedMcpServer"
+      :personalityConfig="personalityConfig"
       @updateLang="(lang) => selectedLang = lang"
       @toggleTheme="toggleTheme"
       @toggleCustomization="toggleCustomization"
@@ -138,7 +139,7 @@ const { initializeAI } = useAI()
 const { startListening, stopListening, speak, stopSpeaking } = useSpeech()
 
 // Add at the top of the script setup
-const API_URL = (import.meta.env.VITE_API_URL || 'https://threed-ai-assistent.onrender.com').replace(/\/$/, '')
+const API_URL = import.meta.env.VITE_API_URL.replace(/\/$/, '')
 
 // Methods
 const toggleTheme = () => {
@@ -187,6 +188,11 @@ async function sendToIOIntel(message: string) {
 }
 
 const handleMessage = async (content: string) => {
+  console.log('handleMessage called with:', content)
+  if (!content || !content.trim()) {
+    // Do not process empty messages (e.g., user stopped speaking)
+    return;
+  }
   const userMessage: Message = {
     id: Date.now().toString(),
     content,
@@ -234,15 +240,26 @@ const handleMessage = async (content: string) => {
     if (avatarCanvas.value) {
       avatarCanvas.value.playAnimation('idle')
     }
-  } catch (error) {
+  } catch (error: any) {
     console.error('Error processing message:', error)
-    const errorMessage: Message = {
-      id: (Date.now() + 1).toString(),
-      content: 'Sorry, I encountered an error processing your request.',
-      role: 'assistant',
-      timestamp: new Date()
+    // Ignore speech synthesis errors
+    if (
+      (typeof window !== 'undefined' && typeof window.SpeechSynthesisErrorEvent !== 'undefined' && error instanceof window.SpeechSynthesisErrorEvent) ||
+      (error && error.error === 'interrupted')
+    ) {
+      // Do not show error message in chat
+      return;
     }
-    messages.value.push(errorMessage)
+    // Only show error if not user cancellation or AbortError
+    if (!(error && (error.name === 'AbortError' || error.message === 'cancelled' || error.message === 'canceled'))) {
+      const errorMessage: Message = {
+        id: (Date.now() + 1).toString(),
+        content: 'Sorry, I encountered an error processing your request.',
+        role: 'assistant',
+        timestamp: new Date()
+      }
+      messages.value.push(errorMessage)
+    }
   } finally {
     isProcessing.value = false
     saveToStorage('messages', messages.value)
@@ -256,10 +273,11 @@ const startVoiceInput = () => {
   }
   startListening(
     (transcript: string) => {
-    if (transcript) {
-      handleMessage(transcript)
-    }
-    stopVoiceInput()
+      console.log('Voice transcript:', transcript)
+      if (transcript && transcript.trim()) {
+        handleMessage(transcript)
+      }
+      stopVoiceInput()
     },
     getCurrentLang(),
     () => {
@@ -449,7 +467,7 @@ function onUpdateModel(model: string) {
 
 .app-container {
   display: grid;
-  grid-template-columns: 1fr 400px;
+  grid-template-columns: 1fr minmax(0, 950px);
   gap: 2rem;
   max-width: 1400px;
   margin: 0 auto;

@@ -2,8 +2,16 @@
   <header class="header">
     <div class="header-content">
       <div class="logo">
-        <h1>AI Assistant</h1>
+        <svg class="ai-logo" width="32" height="32" viewBox="0 0 32 32" fill="none" xmlns="http://www.w3.org/2000/svg">
+          <rect x="4" y="4" width="24" height="24" rx="8" fill="#0f172a" stroke="#00FFF0" stroke-width="2"/>
+          <circle cx="16" cy="16" r="6.5" stroke="#00FFF0" stroke-width="2" fill="none"/>
+          <circle cx="16" cy="16" r="2.5" fill="#00FFF0"/>
+          <path d="M10 16c0-3.3 2.7-6 6-6s6 2.7 6 6-2.7 6-6 6" stroke="#00FFF0" stroke-width="1.5" stroke-linecap="round" stroke-dasharray="2 2"/>
+          <path d="M16 9v2M16 21v2M9 16h2M21 16h2" stroke="#00FFF0" stroke-width="1.2" stroke-linecap="round"/>
+        </svg>
+        <h1 class="scifi-title">{{ personalityConfig && personalityConfig.name ? personalityConfig.name : 'AI Assistant' }}</h1>
       </div>
+      <div class="scanner-bar"></div>
       
       <div class="header-controls">
         <div class="mcp-status">
@@ -53,6 +61,10 @@ const props = defineProps({
   selectedMcpServer: {
     type: [String, null],
     default: null
+  },
+  personalityConfig: {
+    type: Object,
+    default: () => ({})
   }
 })
 const emit = defineEmits(['toggleTheme', 'toggleCustomization', 'updateLang', 'toggleOnline'])
@@ -72,39 +84,80 @@ const selectedMcpServerName = computed(() => {
 </script>
 
 <style scoped>
+@import url('https://fonts.googleapis.com/css2?family=Orbitron:wght@700&display=swap');
+
 .header {
-  background: rgba(255, 255, 255, 0.95);
-  backdrop-filter: blur(10px);
-  border-bottom: 1px solid rgba(0, 0, 0, 0.1);
+  background: linear-gradient(90deg, #0f172a 0%, #1e293b 100%);
+  box-shadow: 0 2px 24px 0 #00fff055;
+  border-bottom: 1.5px solid #00fff0cc;
   position: sticky;
   top: 0;
   z-index: 100;
   transition: all 0.3s ease;
+  overflow: hidden;
 }
 
 .dark .header {
-  background: rgba(26, 32, 44, 0.95);
-  border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+  background: linear-gradient(90deg, #0f172a 0%, #1e293b 100%);
+  border-bottom: 1.5px solid #00fff0cc;
 }
 
 .header-content {
   max-width: 1400px;
   margin: 0 auto;
-  padding: 1rem 2rem;
+  padding: 1rem 2rem 0.5rem 2rem;
   display: flex;
   justify-content: space-between;
   align-items: center;
+  position: relative;
 }
 
-.logo h1 {
-  font-size: 1.5rem;
-  font-weight: 600;
-  color: #1f2937;
+.logo {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+}
+
+.ai-logo {
+  filter: drop-shadow(0 0 8px #00fff0cc);
+  animation: logoPulse 2.5s infinite alternate;
+}
+@keyframes logoPulse {
+  0% { filter: drop-shadow(0 0 8px #00fff0cc); }
+  100% { filter: drop-shadow(0 0 16px #00fff0); }
+}
+
+.scifi-title {
+  font-family: 'Orbitron', 'Segoe UI', Arial, sans-serif;
+  font-size: 1.7rem;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  color: #00fff0;
+  text-shadow: 0 0 8px #00fff0cc, 0 0 2px #fff;
   margin: 0;
+  text-transform: uppercase;
+  transition: color 0.2s;
 }
 
-.dark .logo h1 {
-  color: #f9fafb;
+.dark .scifi-title {
+  color: #00fff0;
+}
+
+.scanner-bar {
+  position: absolute;
+  left: 0;
+  right: 0;
+  top: 100%;
+  height: 3px;
+  background: linear-gradient(90deg, #00fff0 0%, #00b3ff 100%);
+  box-shadow: 0 0 12px #00fff0cc;
+  opacity: 0.7;
+  animation: scannerMove 2.5s linear infinite;
+}
+@keyframes scannerMove {
+  0% { left: -100%; right: 100%; }
+  50% { left: 0; right: 0; }
+  100% { left: 100%; right: -100%; }
 }
 
 .header-controls {
@@ -114,30 +167,33 @@ const selectedMcpServerName = computed(() => {
 }
 
 .control-btn {
-  background: rgba(59, 130, 246, 0.1);
-  border: 1px solid rgba(59, 130, 246, 0.2);
-  color: #3b82f6;
+  background: rgba(0,255,240,0.08);
+  border: 1.5px solid #00fff0cc;
+  color: #00fff0;
   padding: 0.5rem;
-  border-radius: 8px;
+  border-radius: 10px;
   cursor: pointer;
-  transition: all 0.2s ease;
+  transition: all 0.2s cubic-bezier(.4,2,.6,1);
   display: flex;
   align-items: center;
   justify-content: center;
+  box-shadow: 0 0 8px #00fff033, 0 1px 2px #00fff011;
+  backdrop-filter: blur(2px);
 }
 
 .control-btn:hover {
-  background: rgba(59, 130, 246, 0.2);
-  transform: translateY(-1px);
+  background: rgba(0,255,240,0.18);
+  box-shadow: 0 0 16px #00fff0cc, 0 2px 8px #00fff022;
+  transform: translateY(-2px) scale(1.05);
 }
 
 .dark .control-btn {
-  background: rgba(59, 130, 246, 0.2);
-  border: 1px solid rgba(59, 130, 246, 0.3);
+  background: rgba(0,255,240,0.12);
+  border: 1.5px solid #00fff0cc;
 }
 
 .dark .control-btn:hover {
-  background: rgba(59, 130, 246, 0.3);
+  background: rgba(0,255,240,0.22);
 }
 
 .lang-label {

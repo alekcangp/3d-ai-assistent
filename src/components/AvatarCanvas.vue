@@ -120,6 +120,9 @@ let lastUserGaze = 0;
 
 let ambientLight: THREE.AmbientLight
 
+// Persistent random walk for smooth breeze noise
+let breezeNoise = { x: 0, y: 0, z: 0 };
+
 function setGazeFromMouse(event: MouseEvent) {
   const rect = (canvasRef.value as HTMLCanvasElement).getBoundingClientRect();
   // Normalize to [-1, 1] with (0,0) center
@@ -253,22 +256,42 @@ const setupAnimations = () => {
   mixer = new THREE.AnimationMixer(avatar)
 
   // Speaking animation - more dynamic movement
-  const speakingTrack = new THREE.VectorKeyframeTrack(
-    '.rotation',
+  const speakingTrackX = new THREE.NumberKeyframeTrack(
+    '.rotation[x]',
     [0, 0.5, 1, 1.5, 2],
-    [0, 0, 0, 0.1, 0, 0, 0, 0, 0, -0.1, 0, 0, 0, 0, 0]
-  )
-  const speakingClip = new THREE.AnimationClip('speaking', 2, [speakingTrack])
+    [0, 0.1, 0, -0.1, 0]
+  );
+  const speakingTrackY = new THREE.NumberKeyframeTrack(
+    '.rotation[y]',
+    [0, 0.5, 1, 1.5, 2],
+    [0, 0, 0, 0, 0]
+  );
+  const speakingTrackZ = new THREE.NumberKeyframeTrack(
+    '.rotation[z]',
+    [0, 0.5, 1, 1.5, 2],
+    [0, 0, 0, 0, 0]
+  );
+  const speakingClip = new THREE.AnimationClip('speaking', 2, [speakingTrackX, speakingTrackY, speakingTrackZ]);
   animations.speaking = mixer.clipAction(speakingClip)
   animations.speaking.setLoop(THREE.LoopRepeat, Infinity)
 
   // Listening animation - attentive pose
-  const listeningTrack = new THREE.VectorKeyframeTrack(
-    '.rotation',
+  const listeningTrackX = new THREE.NumberKeyframeTrack(
+    '.rotation[x]',
     [0, 1, 2],
-    [0, 0, 0, 0, 0.05, 0.1, 0, 0, 0]
-  )
-  const listeningClip = new THREE.AnimationClip('listening', 2, [listeningTrack])
+    [0, 0, 0]
+  );
+  const listeningTrackY = new THREE.NumberKeyframeTrack(
+    '.rotation[y]',
+    [0, 1, 2],
+    [0, 0.05, 0]
+  );
+  const listeningTrackZ = new THREE.NumberKeyframeTrack(
+    '.rotation[z]',
+    [0, 1, 2],
+    [0, 0.1, 0]
+  );
+  const listeningClip = new THREE.AnimationClip('listening', 2, [listeningTrackX, listeningTrackY, listeningTrackZ]);
   animations.listening = mixer.clipAction(listeningClip)
   animations.listening.setLoop(THREE.LoopRepeat, Infinity)
 
@@ -308,6 +331,41 @@ const animate = () => {
   // Use persistent animation time for all facial movement
   animationTime += 0.008; // slow, tune as needed
 
+  // --- Small random breeze for avatar head (idle only) ---
+  if (avatar && !props.isSpeaking && !props.isListening) {
+    // Defensive: Ensure avatar.rotation is a THREE.Euler
+    if (!(avatar.rotation instanceof THREE.Euler)) {
+      console.warn('avatar.rotation was not a THREE.Euler. Resetting values.');
+      (avatar.rotation as THREE.Euler).set(0, 0, 0, 'XYZ');
+    }
+    // Defensive: Ensure avatar.rotation.order is a valid string
+    const validOrders = ['XYZ', 'YZX', 'ZXY', 'XZY', 'YXZ', 'ZYX'];
+    if (typeof avatar.rotation.order !== 'string' || !validOrders.includes(avatar.rotation.order)) {
+      console.warn('avatar.rotation.order was invalid:', avatar.rotation.order, '. Resetting to "XYZ".');
+      avatar.rotation.order = 'XYZ';
+    }
+    const t = animationTime;
+    // Persistent random walk for smooth noise
+    breezeNoise.x += (Math.random() - 0.5) * 0.00015;
+    breezeNoise.y += (Math.random() - 0.5) * 0.00015;
+    breezeNoise.z += (Math.random() - 0.5) * 0.00010;
+    // Clamp noise to a small range
+    breezeNoise.x = Math.max(-0.012, Math.min(0.012, breezeNoise.x));
+    breezeNoise.y = Math.max(-0.012, Math.min(0.012, breezeNoise.y));
+    breezeNoise.z = Math.max(-0.008, Math.min(0.008, breezeNoise.z));
+
+    // Smoother, lower amplitude sine for gentle sway
+    const breezeX = 0.035 * Math.sin(t * 0.6) + breezeNoise.x;
+    const breezeY = 0.035 * Math.sin(t * 0.4 + 1.2) + breezeNoise.y;
+    const breezeZ = 0.022 * Math.sin(t * 0.8 + 2.1) + breezeNoise.z;
+    avatar.rotation.set(breezeX, breezeY, breezeZ, 'XYZ');
+    
+  } else if (avatar) {
+    // Reset to neutral if not idle (let animation mixer take over)
+    avatar.rotation.set(0, 0, 0, 'XYZ');
+    
+  }
+
   // Realistic facial animation
   if (faceMesh && faceMesh.morphTargetInfluences && faceMesh.morphTargetDictionary) {
     // Use elapsed time for all facial movement
@@ -326,7 +384,7 @@ const animate = () => {
             const fastOsc = 0.08 * Math.sin(now * 12.0 + t * 2.0); // fast, subtle
             const noise = 0.06 * (Math.random() - 0.5);
             if (faceMesh && faceMesh.morphTargetInfluences) {
-              faceMesh.morphTargetInfluences[idx] = Math.max(0, Math.min(1, props.mouthOpenLevel + fastOsc + noise));
+              faceMesh.morphTargetInfluences[idx] = Math.max(0, Math.min(1, (props.mouthOpenLevel * 0.6) + fastOsc + noise));
             }
           } else {
             // Subtle breathing: slow, small sine wave
@@ -877,12 +935,15 @@ onUnmounted(() => {
 })
 
 // Global trap for any mutation of Euler.order (development only)
-if (import.meta.env.MODE === 'development') {
+if (true) {
   (function() {
     let _orderKey = Symbol('order');
     Object.defineProperty(THREE.Euler.prototype, 'order', {
       set(value) {
-        console.error('THREE.Euler.prototype.order set to:', value, new Error().stack);
+        if (typeof value !== 'string') {
+          console.error('Attempted to set Euler.order to non-string:', value, new Error().stack);
+          return; // Ignore the assignment
+        }
         this[_orderKey] = value;
       },
       get() {
