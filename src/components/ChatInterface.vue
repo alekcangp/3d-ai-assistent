@@ -164,6 +164,7 @@ watch(() => props.isProcessing, scrollToBottom)
   background: #3b82f6;
   color: white;
   border-bottom-right-radius: 4px;
+  margin-right: 1rem;
 }
 
 .message.assistant .message-content {
