@@ -9,6 +9,7 @@ from typing import List, Optional
 from fastmcp import Client
 import re
 import json
+import asyncio
 
 # Load environment variables from .env if present
 load_dotenv()
@@ -157,8 +158,15 @@ async def chat(req: ChatRequest):
     #print("[DEBUG]Received persona traits:", json.dumps(persona.model_dump(), indent=2, ensure_ascii=False))
     model_name = req.model or "meta-llama/Llama-3.3-70B-Instruct"
     mcp_url = req.mcpServer  # None means LLM only
-    tools_context = await get_mcp_tools(mcp_url)
-    print(f"[DEBUG] tools_context for LLM:\n{tools_context}")
+    print("[DEBUG] Before get_mcp_tools", mcp_url)
+    try:
+        tools_context = await asyncio.wait_for(get_mcp_tools(mcp_url), timeout=15)
+    except asyncio.TimeoutError:
+        tools_context = "Error: MCP server did not respond in time."
+        print("[DEBUG] MCP server timeout.")
+    print("[DEBUG] After get_mcp_tools")
+    if isinstance(tools_context, str) and tools_context.startswith("Error:"):
+        return {"response": "Sorry, the external tool server is currently unavailable. Please try again later or use LLM-only mode."}
     lang_instruction = ""
     if req.lang:
         lang_instruction = f"Always answer in the language: {req.lang}."
@@ -171,6 +179,7 @@ async def chat(req: ChatRequest):
         "\nIf no tool is relevant, answer the user's question using your own knowledge as usual. Otherwise, respond with a natural language answer."
     )
     print(f"[DEBUG] LLM instructions:\n{instructions}")
+    print(f"[DEBUG] MODEL:\n{model_name}")
     agent = Agent(
         name=persona.name,
         instructions=instructions,
@@ -184,7 +193,9 @@ async def chat(req: ChatRequest):
         role = "User" if msg.role == "user" else "Assistant"
         prompt += f"{role}: {msg.content}\n"
     prompt += f"User: {req.message}\nAssistant:"
+    print("[DEBUG] Before agent.run")
     response = await agent.run(prompt)
+    print("[DEBUG] After agent.run")
     print(f"[DEBUG] Initial LLM response: {response}")
     parsed = None
     if isinstance(response, dict) and "result" in response:
