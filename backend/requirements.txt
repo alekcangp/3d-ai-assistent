@@ -4,4 +4,4 @@ python-dotenv
 iointel
 fastmcp
 pydantic
-pydantic-ai
+pydantic-ai==0.1.5
