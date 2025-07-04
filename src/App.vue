@@ -511,8 +511,16 @@ const resetChat = () => {
 
 .chat-header-row {
   display: flex;
+  align-items: ceenter;
   justify-content: flex-end;
-  margin-bottom: 0.5rem;
+  min-height: 24px;
+  margin-bottom: 1rem;
+  border-bottom: 1px solid rgba(0, 0, 0, 0.1);
+  padding: 0rem 0rem 1rem 0rem
+}
+
+.dark .chat-header-row {
+  border-bottom-color: rgba(255, 255, 255, 0.1);
 }
 
 .reset-chat-btn {
