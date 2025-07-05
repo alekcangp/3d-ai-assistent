@@ -555,7 +555,8 @@ async def chat(req: ChatRequest):
         "- Do not just mention that links exist - actually include them in your response\n"
         "- Present information clearly and conversationally\n"
         "- If there was an error, explain what went wrong and suggest alternatives\n"
-        "- NEVER include any JSON, even if it's part of the tool's internal process"
+        "- NEVER include any JSON, even if it's part of the tool's internal process\n"
+        "- If you see a number that looks like a UNIX timestamp (e.g., 10 or more digits, likely in seconds since 1970), always convert it to a human-readable date in your response.\n"
     )
     print(f"[DEBUG] Tools:\n{tools_context}")
 
