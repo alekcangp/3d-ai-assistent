@@ -333,7 +333,8 @@ function handleLangChange(e: Event) {
 onMounted(async () => {
   modelLoading.value = true
   try {
-    const res = await fetch('http://localhost:8000/models')
+    const API_URL = import.meta.env.VITE_API_URL.replace(/\/$/, '')
+    const res = await fetch(`${API_URL}/models`)
     const data = await res.json()
     modelList.value = data.models || []
   } catch (e) {
