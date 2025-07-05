@@ -38,6 +38,9 @@
           type="text" 
           placeholder="Type your message..."
           @keypress.enter="sendMessage"
+          @input="handleUserTyping"
+          @focus="handleUserTyping"
+          @keydown="handleUserTyping"
           :disabled="isProcessing"
           class="message-input"
         />
@@ -60,23 +63,35 @@ import { ref, nextTick, watch } from 'vue'
 import type { Message } from '../types'
 import { marked } from 'marked'
 
+// Configure marked for better rendering
+marked.setOptions({
+  breaks: true,  // Convert \n to <br>
+  gfm: true,     // GitHub Flavored Markdown
+  headerIds: false,
+  mangle: false
+})
+
 const props = defineProps<{
   messages: Message[]
   isProcessing: boolean
+  isSpeaking: boolean
 }>()
 
 const emit = defineEmits<{
   sendMessage: [content: string]
+  userTyping: []
 }>()
 
 const inputText = ref('')
 const messagesContainer = ref<HTMLElement>()
+const hasTyped = ref(false)
 
 const sendMessage = () => {
   if (!inputText.value.trim() || props.isProcessing) return
   
   emit('sendMessage', inputText.value.trim())
   inputText.value = ''
+  hasTyped.value = false // Reset typing flag when message is sent
 }
 
 const formatTime = (ts: any) => {
@@ -100,6 +115,21 @@ const scrollToBottom = () => {
 // Watch for new messages and scroll to bottom
 watch(() => props.messages.length, scrollToBottom)
 watch(() => props.isProcessing, scrollToBottom)
+
+// Reset typing flag when processing starts
+watch(() => props.isProcessing, (isProcessing) => {
+  if (isProcessing) {
+    hasTyped.value = false
+  }
+})
+
+const handleUserTyping = () => {
+  if (!hasTyped.value) {
+    console.log('User typing detected - emitting userTyping event')
+    emit('userTyping')
+    hasTyped.value = true
+  }
+}
 </script>
 
 <style scoped>
@@ -308,5 +338,120 @@ watch(() => props.isProcessing, scrollToBottom)
   height: 18px;
   display: block;
   margin: 0 auto;
+}
+
+/* Markdown Content Styles */
+.message.assistant .message-content :deep(h1),
+.message.assistant .message-content :deep(h2),
+.message.assistant .message-content :deep(h3),
+.message.assistant .message-content :deep(h4),
+.message.assistant .message-content :deep(h5),
+.message.assistant .message-content :deep(h6) {
+  margin: 0.5rem 0 0.25rem 0;
+  font-weight: 600;
+  line-height: 1.3;
+}
+
+.message.assistant .message-content :deep(h1) { font-size: 1.5rem; }
+.message.assistant .message-content :deep(h2) { font-size: 1.25rem; }
+.message.assistant .message-content :deep(h3) { font-size: 1.125rem; }
+.message.assistant .message-content :deep(h4) { font-size: 1rem; }
+
+.message.assistant .message-content :deep(p) {
+  margin: 0.5rem 0;
+  line-height: 1.6;
+}
+
+.message.assistant .message-content :deep(ul),
+.message.assistant .message-content :deep(ol) {
+  margin: 0.5rem 0;
+  padding-left: 1.5rem;
+}
+
+.message.assistant .message-content :deep(li) {
+  margin: 0.25rem 0;
+  line-height: 1.5;
+}
+
+.message.assistant .message-content :deep(blockquote) {
+  margin: 0.5rem 0;
+  padding: 0.5rem 1rem;
+  border-left: 3px solid #3b82f6;
+  background: rgba(59, 130, 246, 0.05);
+  border-radius: 0 4px 4px 0;
+}
+
+.dark .message.assistant .message-content :deep(blockquote) {
+  background: rgba(59, 130, 246, 0.1);
+}
+
+.message.assistant .message-content :deep(code) {
+  background: rgba(0, 0, 0, 0.1);
+  padding: 0.125rem 0.25rem;
+  border-radius: 3px;
+  font-family: 'Monaco', 'Menlo', 'Ubuntu Mono', monospace;
+  font-size: 0.875rem;
+}
+
+.dark .message.assistant .message-content :deep(code) {
+  background: rgba(255, 255, 255, 0.1);
+}
+
+.message.assistant .message-content :deep(pre) {
+  background: rgba(0, 0, 0, 0.05);
+  padding: 0.75rem;
+  border-radius: 6px;
+  overflow-x: auto;
+  margin: 0.5rem 0;
+  border: 1px solid rgba(0, 0, 0, 0.1);
+}
+
+.dark .message.assistant .message-content :deep(pre) {
+  background: rgba(255, 255, 255, 0.05);
+  border-color: rgba(255, 255, 255, 0.1);
+}
+
+.message.assistant .message-content :deep(pre code) {
+  background: none;
+  padding: 0;
+}
+
+.message.assistant .message-content :deep(a) {
+  color: #3b82f6;
+  text-decoration: none;
+}
+
+.message.assistant .message-content :deep(a:hover) {
+  text-decoration: underline;
+}
+
+.message.assistant .message-content :deep(strong) {
+  font-weight: 600;
+}
+
+.message.assistant .message-content :deep(em) {
+  font-style: italic;
+}
+
+.message.assistant .message-content :deep(hr) {
+  border: none;
+  border-top: 1px solid rgba(0, 0, 0, 0.1);
+  margin: 1rem 0;
+}
+
+.dark .message.assistant .message-content :deep(hr) {
+  border-top-color: rgba(255, 255, 255, 0.1);
+}
+
+/* Source link styling for converted results */
+.message.assistant .message-content :deep(.source-link) {
+  font-size: 0.875rem;
+  color: #6b7280;
+  margin-bottom: 0.5rem;
+  display: block;
+}
+
+.dark .message.assistant .message-content :deep(.source-link) {
+  color: #9ca3af;
 }
 </style>

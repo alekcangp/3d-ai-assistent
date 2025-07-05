@@ -11,7 +11,6 @@
   "dependencies": {
     "@modelcontextprotocol/sdk": "^1.13.3",
     "@types/three": "^0.158.3",
-    "dompurify": "^3.2.6",
     "gsap": "^3.12.2",
     "idb": "^7.1.1",
     "marked": "^16.0.0",

@@ -206,7 +206,7 @@ const createAvatar = async () => {
   const loader = new GLTFLoader()
   // Setup KTX2Loader for KTX2 compressed textures
   const ktx2Loader = new KTX2Loader()
-    .setTranscoderPath('https://unpkg.com/three@0.150.1/examples/jsm/libs/basis/')
+    .setTranscoderPath('/libs/basis/')
     .detectSupport(renderer)
   loader.setKTX2Loader(ktx2Loader)
   // Set MeshoptDecoder directly

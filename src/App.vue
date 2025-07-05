@@ -5,7 +5,7 @@
       :selectedLang="selectedLang"
       :selectedMcpServer="selectedMcpServer"
       :personalityConfig="personalityConfig"
-      @updateLang="(lang) => selectedLang = lang"
+      @updateLang="onUpdateLang"
       @toggleTheme="toggleTheme"
       @toggleCustomization="toggleCustomization"
     />
@@ -47,7 +47,9 @@
           <ChatInterface
             :messages="messages"
             :isProcessing="isProcessing"
+            :isSpeaking="isSpeaking"
             @sendMessage="handleMessage"
+            @userTyping="handleStopSpeaking"
           />
         </div>
       </div>
@@ -101,6 +103,7 @@ let mouthTween: gsap.core.Tween | null = null
 const selectedLang = ref('system')
 const selectedMcpServer = ref<string | null>(null)
 const selectedModel = ref('')
+const resetGenerationId = ref(0)
 
 // Refs
 const avatarCanvas = ref()
@@ -142,7 +145,7 @@ let personalityConfig = ref<PersonalityConfig>({
 const messages = ref<Message[]>([])
 
 // Composables
-const { saveToStorage, loadFromStorage } = useLocalStorage()
+const { saveToStorage, loadFromStorage, saveMessages, loadMessages } = useLocalStorage()
 const { initializeAI } = useAI()
 const { startListening, stopListening, speak, stopSpeaking } = useSpeech()
 
@@ -179,12 +182,15 @@ async function sendToIOIntel(message: string) {
   // Always use the selected language from personalityConfig.lang
   let langToSend = personalityConfig.value.lang
   if (!langToSend || langToSend === 'system') langToSend = navigator.language
+  if (langToSend.includes('-')) langToSend = langToSend.split('-')[0] // Normalize to 'ru', 'en', etc.
+  // Exclude 'lang' from traits
+  const { lang, ...traitsWithoutLang } = personalityConfig.value
   const res = await fetch(`${API_URL}/chat`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({
       message,
-      traits: { ...personalityConfig.value, lang: langToSend },
+      traits: traitsWithoutLang,
       history,
       model: selectedModel.value,
       mcpServer: selectedMcpServer.value,
@@ -201,6 +207,7 @@ const handleMessage = async (content: string) => {
     // Do not process empty messages (e.g., user stopped speaking)
     return;
   }
+  const myGenId = resetGenerationId.value;
   const userMessage: Message = {
     id: Date.now().toString(),
     content,
@@ -210,10 +217,15 @@ const handleMessage = async (content: string) => {
 
   messages.value.push(userMessage)
   isProcessing.value = true
+  console.log('Processing started - input should be disabled')
 
   try {
     // Use IOIntel backend for persona-driven response
     const aiResponse = await sendToIOIntel(content);
+    if (resetGenerationId.value !== myGenId) {
+      isProcessing.value = false;
+      return; // Chat was reset during processing, ignore this response
+    }
     const aiMessage: Message = {
       id: (Date.now() + 1).toString(),
       content: aiResponse,
@@ -221,11 +233,15 @@ const handleMessage = async (content: string) => {
       timestamp: new Date()
     }
     messages.value.push(aiMessage)
+    // Set processing to false after receiving response, before speaking
+    isProcessing.value = false
+    console.log('Processing finished - input should be enabled')
     // Animate avatar and speak response as before
     if (avatarCanvas.value) {
       avatarCanvas.value.playAnimation('speaking')
     }
     isSpeaking.value = true
+    console.log('Speaking started - input should be enabled for interruption')
     await speak(aiResponse, () => {
       if (mouthTween) mouthTween.kill()
       mouthTween = gsap.to(mouthOpenLevel, {
@@ -244,7 +260,7 @@ const handleMessage = async (content: string) => {
     if (mouthTween) mouthTween.kill()
     mouthTween = gsap.to(mouthOpenLevel, { value: 0, duration: 0.15 })
     isSpeaking.value = false
-    
+    console.log('Speaking finished - input should remain enabled')
     if (avatarCanvas.value) {
       avatarCanvas.value.playAnimation('idle')
     }
@@ -269,8 +285,7 @@ const handleMessage = async (content: string) => {
       messages.value.push(errorMessage)
     }
   } finally {
-    isProcessing.value = false
-    saveToStorage('messages', messages.value)
+    saveMessages(messages.value)
   }
 }
 
@@ -332,7 +347,7 @@ onMounted(async () => {
   }
   personalityConfig.value = { ...personalityConfig.value, ...(savedPersonalityConfig || {}) }
   
-  const savedMessages = await loadFromStorage('messages', [])
+  const savedMessages = await loadMessages()
   messages.value = savedMessages || []
 
   // Load saved MCP server
@@ -449,6 +464,7 @@ function getCurrentLang() {
 }
 
 function handleStopSpeaking() {
+  console.log('handleStopSpeaking called - stopping speech')
   stopSpeaking();
   isSpeaking.value = false;
   if (avatarCanvas.value) {
@@ -463,7 +479,13 @@ function onUpdateModel(model: string) {
 
 const resetChat = () => {
   messages.value = [];
+  saveMessages([]);
+  // Also clear from settings store for backward compatibility
   saveToStorage('messages', []);
+  isProcessing.value = false;
+  isSpeaking.value = false;
+  stopSpeaking();
+  resetGenerationId.value++;
 }
 </script>
 

@@ -23,7 +23,7 @@
       <div class="loading-steps">
       <div class="step" :class="{ active: progress >= 10 }">
           <span class="checkmark">✓</span>
-          Waking up... (up to 50 sec)
+          Waking up... (50 seconds or more)
         </div>
         <div class="step" :class="{ active: progress >= 20 }">
           <span class="checkmark">✓</span>

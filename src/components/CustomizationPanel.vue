@@ -57,18 +57,9 @@
 
           <div class="control-group">
             <label for="lang-select">Language</label>
-            <select id="lang-select" :value="selectedLang" @change="e => emit('updateLang', (e.target as HTMLSelectElement)?.value)">
-              <option value="system">System Default</option>
-              <option value="en">English</option>
-              <option value="zh">Chinese (中文)</option>
-              <option value="hi">Hindi (हिन्दी)</option>
-              <option value="es">Spanish (Español)</option>
-              <option value="fr">French (Français)</option>
-              <option value="ar">Arabic (العربية)</option>
-              <option value="bn">Bengali (বাংলা)</option>
-              <option value="pt">Portuguese (Português)</option>
-              <option value="ru">Russian (Русский)</option>
-              <option value="ja">Japanese (日本語)</option>
+            <select id="lang-select" :value="localSelectedLang" @change="handleLangChange">
+              <option value="system">System Default ({{ systemLangLabel }})</option>
+              <option v-for="lang in LANGUAGES" :key="lang.code" :value="lang.code">{{ lang.label }}</option>
             </select>
           </div>
           <div class="control-group">
@@ -300,6 +291,44 @@ const selectedMcpObj = computed(() => mcpServers.find(s => s.value === selectedM
 const panelRef = ref<HTMLElement | null>(null)
 
 const showMcpInfo = ref(false)
+
+const localSelectedLang = ref(props.selectedLang)
+
+const LANGUAGES = [
+  { code: 'en', label: 'English' },
+  { code: 'zh', label: 'Chinese (中文)' },
+  { code: 'hi', label: 'Hindi (हिन्दी)' },
+  { code: 'es', label: 'Spanish (Español)' },
+  { code: 'fr', label: 'French (Français)' },
+  { code: 'ar', label: 'Arabic (العربية)' },
+  { code: 'bn', label: 'Bengali (বাংলা)' },
+  { code: 'pt', label: 'Portuguese (Português)' },
+  { code: 'ru', label: 'Russian (Русский)' },
+  { code: 'ja', label: 'Japanese (日本語)' },
+  { code: 'de', label: 'German (Deutsch)' },
+  { code: 'ur', label: 'Urdu (اردو)' },
+  { code: 'tr', label: 'Turkish (Türkçe)' },
+  { code: 'it', label: 'Italian (Italiano)' },
+  { code: 'pl', label: 'Polish (Polski)' },
+  { code: 'uk', label: 'Ukrainian (Українська)' }
+]
+
+const systemLangLabel = computed(() => {
+  const sys = navigator.language || 'en'
+  const short = sys.split('-')[0]
+  const found = LANGUAGES.find(l => l.code === short)
+  return found ? found.label.replace(/\(.+\)/, '').trim() : short
+})
+
+watch(() => props.selectedLang, (newLang) => {
+  localSelectedLang.value = newLang
+})
+
+function handleLangChange(e: Event) {
+  const value = (e.target as HTMLSelectElement)?.value
+  localSelectedLang.value = value
+  emit('updateLang', value)
+}
 
 onMounted(async () => {
   modelLoading.value = true
