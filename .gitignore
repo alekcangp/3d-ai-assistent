@@ -25,5 +25,9 @@ dist-ssr
 .env
 .vercel
 
+
+# Python virtual environment
+backend/venv/
+
+# Python cache
 backend/__pycache__/
-venv/
