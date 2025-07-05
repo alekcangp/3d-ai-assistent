@@ -150,7 +150,7 @@ const { initializeAI } = useAI()
 const { startListening, stopListening, speak, stopSpeaking } = useSpeech()
 
 // Add at the top of the script setup
-const API_URL = import.meta.env.VITE_API_URL.replace(/\/$/, '')
+const API_URL = (import.meta.env.VITE_API_URL || "http://localhost:8000").replace(/\/$/, '')
 
 // Methods
 const toggleTheme = () => {

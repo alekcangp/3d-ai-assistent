@@ -19,7 +19,8 @@ app = FastAPI()
 app.add_middleware(
     CORSMiddleware,
     allow_origins=[
-        "https://threed-ai-assistent-1.onrender.com"
+        "https://threed-ai-assistent-1.onrender.com",
+        "http://localhost:5173"
     ],
     allow_credentials=True,
     allow_methods=["*"],
