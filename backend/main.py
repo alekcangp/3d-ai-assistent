@@ -258,6 +258,20 @@ async def chat(req: ChatRequest):
 def get_models():
     return {"models": AVAILABLE_MODELS}
 
+@app.get("/mcp-tools")
+async def get_mcp_tools_endpoint(mcp_url: str):
+    """Get available tools from an MCP server"""
+    if not mcp_url:
+        return {"tools": "No MCP server URL provided"}
+    
+    try:
+        tools_context = await asyncio.wait_for(get_mcp_tools(mcp_url), timeout=15)
+        return {"tools": tools_context}
+    except asyncio.TimeoutError:
+        return {"tools": "Error: MCP server did not respond in time."}
+    except Exception as e:
+        return {"tools": f"Error fetching tools: {str(e)}"}
+
 if __name__ == "__main__":
     uvicorn.run("main:app", host="0.0.0.0", port=8000, reload=True)
 

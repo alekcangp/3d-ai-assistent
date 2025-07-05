@@ -21,6 +21,19 @@
             {{ selectedMcpServerName }}
           </span>
         </div>
+        
+        <!-- Tools Button -->
+        <button 
+          v-if="props.selectedMcpServer"
+          class="control-btn"
+          @click="showToolsModal = true"
+          title="View Available Tools"
+        >
+          <svg width="20" height="20" viewBox="0 0 24 24" fill="currentColor">
+            <path d="M22.7 19l-9.1-9.1c.9-2.3.4-5-1.5-6.9-2-2-5-2.4-7.4-1.3L9 6 6 9 1.6 4.7C.4 7.1.9 10.1 2.9 12.1c1.9 1.9 4.6 2.4 6.9 1.5l9.1 9.1c.4.4 1 .4 1.4 0l2.3-2.3c.5-.4.5-1.1.1-1.4z"/>
+          </svg>
+        </button>
+        
         <button 
           class="control-btn"
           @click="$emit('toggleCustomization')"
@@ -45,11 +58,37 @@
         </button>
       </div>
     </div>
+    
+    <!-- Tools Modal -->
+    <div v-if="showToolsModal" class="modal-overlay" @click="showToolsModal = false">
+      <div class="modal-content" @click.stop>
+        <div class="modal-header">
+          <h3>Available Tools</h3>
+          <button class="close-btn" @click="showToolsModal = false">
+            <svg width="20" height="20" viewBox="0 0 24 24" fill="currentColor">
+              <path d="M19 6.41L17.59 5 12 10.59 6.41 5 5 6.41 10.59 12 5 17.59 6.41 19 12 13.41 17.59 19 19 17.59 13.41 12z"/>
+            </svg>
+          </button>
+        </div>
+        <div class="modal-body">
+          <div v-if="loading" class="loading">
+            <div class="spinner"></div>
+            <p>Loading tools...</p>
+          </div>
+          <div v-else-if="error" class="error">
+            <p>{{ error }}</p>
+          </div>
+          <div v-else class="tools-list">
+            <pre>{{ tools }}</pre>
+          </div>
+        </div>
+      </div>
+    </div>
   </header>
 </template>
 
 <script setup lang="ts">
-import { defineProps, defineEmits, computed } from 'vue'
+import { defineProps, defineEmits, computed, ref, watch } from 'vue'
 import { mcpServers } from '../constants/mcpServers'
 
 const props = defineProps({
@@ -75,6 +114,53 @@ const selectedMcpServerName = computed(() => {
   const found = mcpServers.find(s => s.value === props.selectedMcpServer)
   return found ? found.name : props.selectedMcpServer
 })
+
+// Tools modal state
+const showToolsModal = ref(false)
+const tools = ref('')
+const loading = ref(false)
+const error = ref('')
+
+// Fetch tools when modal opens
+watch(showToolsModal, async (newVal) => {
+  if (newVal && props.selectedMcpServer) {
+    await fetchTools()
+  }
+})
+
+async function fetchTools() {
+  if (!props.selectedMcpServer) return
+  
+  loading.value = true
+  error.value = ''
+  tools.value = ''
+  
+  try {
+    const API_URL = import.meta.env.VITE_API_URL.replace(/\/$/, '')
+    console.log('API_URL:', API_URL)
+    console.log('Selected MCP Server:', props.selectedMcpServer)
+    
+    const url = `${API_URL}/mcp-tools?mcp_url=${encodeURIComponent(props.selectedMcpServer)}`
+    console.log('Requesting URL:', url)
+    
+    const response = await fetch(url)
+    console.log('Response status:', response.status)
+    
+    const data = await response.json()
+    console.log('Response data:', data)
+    
+    if (data.tools && !data.tools.startsWith('Error:')) {
+      tools.value = data.tools
+    } else {
+      error.value = data.tools || 'Failed to load tools'
+    }
+  } catch (err) {
+    console.error('Fetch error:', err)
+    error.value = 'Failed to connect to server'
+  } finally {
+    loading.value = false
+  }
+}
 </script>
 
 <style scoped>
@@ -266,5 +352,151 @@ const selectedMcpServerName = computed(() => {
   .logo h1 {
     font-size: 1.25rem;
   }
+}
+
+/* Tools Modal Styles */
+.modal-overlay {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background: rgba(0, 0, 0, 0.7);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 1000;
+  backdrop-filter: blur(4px);
+}
+
+.modal-content {
+  background: linear-gradient(135deg, #1e293b 0%, #0f172a 100%);
+  border: 2px solid #00fff0;
+  border-radius: 16px;
+  box-shadow: 0 0 32px rgba(0, 255, 240, 0.3);
+  max-width: 90vw;
+  max-height: 80vh;
+  width: 600px;
+  overflow: hidden;
+  animation: modalSlideIn 0.3s ease-out;
+}
+
+@keyframes modalSlideIn {
+  from {
+    opacity: 0;
+    transform: translateY(-20px) scale(0.95);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+  }
+}
+
+.modal-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 1.5rem 2rem 1rem 2rem;
+  border-bottom: 1px solid #334155;
+  background: linear-gradient(90deg, #1e293b 0%, #0f172a 100%);
+}
+
+.modal-header h3 {
+  color: #00fff0;
+  font-size: 1.5rem;
+  font-weight: 600;
+  margin: 0;
+  text-shadow: 0 0 8px #00fff0cc;
+}
+
+.close-btn {
+  background: rgba(239, 68, 68, 0.1);
+  border: 1px solid #ef4444;
+  color: #ef4444;
+  padding: 0.5rem;
+  border-radius: 8px;
+  cursor: pointer;
+  transition: all 0.2s;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.close-btn:hover {
+  background: rgba(239, 68, 68, 0.2);
+  box-shadow: 0 0 12px rgba(239, 68, 68, 0.3);
+}
+
+.modal-body {
+  padding: 1.5rem 2rem 2rem 2rem;
+  max-height: 60vh;
+  overflow-y: auto;
+}
+
+.loading {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  padding: 2rem;
+  color: #00fff0;
+}
+
+.spinner {
+  width: 40px;
+  height: 40px;
+  border: 3px solid rgba(0, 255, 240, 0.2);
+  border-top: 3px solid #00fff0;
+  border-radius: 50%;
+  animation: spin 1s linear infinite;
+  margin-bottom: 1rem;
+}
+
+@keyframes spin {
+  0% { transform: rotate(0deg); }
+  100% { transform: rotate(360deg); }
+}
+
+.error {
+  color: #ef4444;
+  text-align: center;
+  padding: 2rem;
+  background: rgba(239, 68, 68, 0.1);
+  border-radius: 8px;
+  border: 1px solid rgba(239, 68, 68, 0.3);
+}
+
+.tools-list {
+  color: #e2e8f0;
+  font-family: 'Monaco', 'Menlo', 'Ubuntu Mono', monospace;
+  font-size: 0.9rem;
+  line-height: 1.5;
+}
+
+.tools-list pre {
+  background: rgba(0, 0, 0, 0.3);
+  border: 1px solid #334155;
+  border-radius: 8px;
+  padding: 1rem;
+  overflow-x: auto;
+  white-space: pre-wrap;
+  word-break: break-word;
+  color: #e2e8f0;
+  margin: 0;
+}
+
+/* Dark mode adjustments */
+.dark .modal-content {
+  background: linear-gradient(135deg, #0f172a 0%, #020617 100%);
+}
+
+.dark .modal-header {
+  background: linear-gradient(90deg, #0f172a 0%, #020617 100%);
+  border-bottom: 1px solid #1e293b;
+}
+
+.dark .tools-list pre {
+  background: rgba(0, 0, 0, 0.5);
+  border: 1px solid #1e293b;
 }
 </style>
