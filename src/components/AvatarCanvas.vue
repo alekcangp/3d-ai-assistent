@@ -836,21 +836,7 @@ const animate = () => {
       }
     }
 
-    // --- 1c. Add subtle smile/frown micro-movement during speech ---
-    if (props.isSpeaking && typeof props.mouthOpenLevel === 'number') {
-      const smileL = faceMesh?.morphTargetDictionary?.["mouthSmile_L"] ?? 0;
-      const smileR = faceMesh?.morphTargetDictionary?.["mouthSmile_R"] ?? 0;
-      if (typeof smileL === 'number') {
-        if (faceMesh && faceMesh.morphTargetInfluences) {
-          faceMesh.morphTargetInfluences[smileL] = 0.08 * Math.abs(Math.sin(t * 2.1 + Math.random() * 2));
-        }
-      }
-      if (typeof smileR === 'number') {
-        if (faceMesh && faceMesh.morphTargetInfluences) {
-          faceMesh.morphTargetInfluences[smileR] = 0.08 * Math.abs(Math.sin(t * 2.2 + Math.random() * 2));
-        }
-      }
-    }
+    
   }
 
   updateRandomFaceState()

@@ -1,5 +1,5 @@
 import os
-from fastapi import FastAPI
+from fastapi import FastAPI, Request
 from pydantic import BaseModel
 from iointel import Agent, PersonaConfig
 import uvicorn
@@ -10,6 +10,69 @@ from fastmcp import Client
 import re
 import json
 import asyncio
+from backend.layout_tables import LAYOUTS, LANG_CHARSETS, fix_keyboard_layout, detect_charset
+try:
+    from mcp_instructions import get_mcp_instructions, get_mcp_final_instructions
+except ImportError:
+    # Fallback to default instructions if module not found
+    def get_mcp_instructions(mcp_url: str, lang_code: str, tools_context: str) -> str:
+        lang_instruction = "RESPOND ONLY IN ENGLISH. Do not use any other languages." if lang_code == "en" else f"RESPOND ONLY IN {lang_code.upper()}. Do not use any other languages."
+        return f"""{lang_instruction}
+
+You have access to the following tools:
+{tools_context}
+
+CRITICAL INSTRUCTIONS FOR TOOL USAGE:
+
+1. ONLY use tools when the user specifically requests data, information, or functionality that requires external data.
+
+2. Do NOT use tools for: greetings, general conversation, questions about yourself, opinions, explanations, or creative writing.
+
+3. Use tools ONLY for: specific data requests, information retrieval, or functionality that requires external access.
+
+4. When using a tool, respond ONLY with a JSON object in this exact format:
+   {{"tool_call": {{"tool": "<tool_name>", "params": {{<params>}}}}}}
+
+5. Ensure ALL required parameters are provided. Do not use 'undefined' or empty values for required parameters.
+
+6. For general conversation, greetings, questions about yourself, or non-data requests, respond naturally without using any tools.
+
+7. If no tool is needed, respond naturally to the user's question.
+"""
+
+    def get_mcp_final_instructions(mcp_url: str, lang_code: str) -> str:
+        lang_instruction = "RESPOND ONLY IN ENGLISH. Do not use any other languages." if lang_code == "en" else f"RESPOND ONLY IN {lang_code.upper()}. Do not use any other languages."
+        return f"""{lang_instruction}
+
+Provide clear, natural language answers to user questions.
+
+RESPONSE FORMAT INSTRUCTIONS:
+When providing final answers to users:
+- Write in clear, natural language ONLY
+- Format your response in Markdown for better readability
+- Use **bold** for emphasis, *italic* for subtle emphasis
+- Use bullet points (- or *) for lists
+- Use numbered lists (1. 2. 3.) for steps or sequences
+- Use `code` for technical terms, file names, or commands
+- Use ```code blocks``` for longer code examples
+- Use > for blockquotes when citing or emphasizing important information
+- Do NOT mention which tools were used
+- Do NOT show any JSON, arrays, or structured data
+- Do NOT include tool call syntax or examples
+- Do NOT mention 'thoughts', 'reasoning', or internal processes
+- Do NOT show internal tracking data, thought numbers, or metadata
+- Do NOT include any JSON objects, even if they appear in tool results
+- Focus on answering the user's question directly
+- ALWAYS include relevant links from the tool results when available
+- Format links as [Description](URL) with descriptive text
+- When discussing websites, social media, or resources, ALWAYS include the actual links
+- Do not just mention that links exist - actually include them in your response
+- Present information clearly and conversationally
+- If there was an error, explain what went wrong and suggest alternatives
+- NEVER include any JSON, even if it's part of the tool's internal process
+- If you see a number that looks like a UNIX timestamp (e.g., 10 or more digits, likely in seconds since 1970), always convert it to a human-readable date in your response
+- When users ask about projects, repositories, or documentation, and if the project has DeepWiki documentation available, include the DeepWiki link in format: [DeepWiki Documentation](https://deepwiki.com/owner/repo). Only include this link if you know the project has DeepWiki documentation
+"""
 
 # Load environment variables from .env if present
 load_dotenv()
@@ -97,7 +160,7 @@ async def get_mcp_tools(mcp_url):
         return "No tools available"
     try:
         # Add timeout for the tools listing
-        async with Client(mcp_url, timeout=15.0) as client:
+        async with Client(mcp_url, timeout=30) as client:
             tools = await client.list_tools()
             # Show name, description, and parameters for each tool
             tool_descriptions = []
@@ -105,22 +168,23 @@ async def get_mcp_tools(mcp_url):
                 tool_name = getattr(tool, 'name', str(tool))
                 tool_desc = getattr(tool, 'description', '')
                 params = getattr(tool, 'parameters', None)
-                
-                desc = f"- {tool_name}: {tool_desc}"
-                if params:
-                    # Extract required parameters
-                    required_params = []
-                    if isinstance(params, dict) and 'properties' in params:
-                        for param_name, param_info in params['properties'].items():
-                            if isinstance(param_info, dict):
-                                if param_info.get('required', False) or 'required' in str(param_info):
-                                    required_params.append(param_name)
-                    
-                    desc += f"\n    Parameters: {json.dumps(params, ensure_ascii=False)}"
+                if not params:
+                    params = getattr(tool, 'inputSchema', None)
+                desc = f"- **{tool_name}**: {tool_desc}"
+                if params and isinstance(params, dict) and 'properties' in params:
+                    required_params = params.get('required', [])
                     if required_params:
-                        desc += f"\n    Required parameters: {', '.join(required_params)}"
-                
+                        param_lines = []
+                        for param_name in required_params:
+                            param_info = params['properties'].get(param_name, {})
+                            param_type = param_info.get('type', 'unknown')
+                            param_desc = param_info.get('description', '')
+                            param_lines.append(f"    - {param_name} ({param_type}): {param_desc}")
+                        if param_lines:
+                            desc += "\n  Required Params:\n" + "\n".join(param_lines)
                 tool_descriptions.append(desc)
+            # Print the raw tools list/dict as received from the MCP server
+            #print(f"[INFO] Raw tools: {tools}")
             return "\n".join(tool_descriptions)
     except Exception as e:
         error_msg = str(e)
@@ -151,7 +215,7 @@ async def call_mcp_tool(mcp_url, tool_name, params):
     
     try:
         # Add timeout for the tool call
-        async with Client(mcp_url, timeout=60.0) as client:
+        async with Client(mcp_url, timeout=30.0) as client:
             return await client.call_tool(tool_name, cleaned_params)
     except Exception as e:
         error_msg = str(e)
@@ -274,7 +338,10 @@ def convert_sformat_to_markdown(sformat_text):
         chatbot_block = f"""---\n**{link_text}**: [{url}]({url})\n\n{markdown}\n"""
         markdown_output.append(chatbot_block)
 
-    return "\n".join(markdown_output)
+    result_markdown = "\n".join(markdown_output)
+    # Replace tabs with spaces to avoid code block rendering
+    result_markdown = result_markdown.replace('\t', '    ')
+    return result_markdown
 
 def clean_tool_calls_from_response(text):
     """Remove any tool call JSON from the response text."""
@@ -381,7 +448,7 @@ def convert_calltoolresult_to_markdown(calltoolresult_text):
             print("[DEBUG] CallToolResult contains JSON/array data")
             
             # Check if the data is too large (more than 8000 characters)
-            if len(raw_text) > 8000:
+            if len(raw_text) > 3000:
                 print(f"[DEBUG] JSON data is too large ({len(raw_text)} chars), summarizing for agent processing")
                 # Intelligently summarize the large JSON data
                 summarized_text = summarize_large_json(raw_text)
@@ -395,6 +462,9 @@ def convert_calltoolresult_to_markdown(calltoolresult_text):
         
         # Clean and format the text
         markdown = clean_html(raw_text)
+        
+        # Replace tabs with spaces to avoid code block rendering
+        markdown = markdown.replace('\t', '    ')
         
         # Clean up the final markdown
         markdown = re.sub(r'\n\s*\n\s*\n', '\n\n', markdown)  # Remove excessive newlines
@@ -470,9 +540,245 @@ def format_urls_in_text(text):
     
     return formatted_text
 
+# Расширенные таблицы соответствий для популярных языков
+EN_RU_LAYOUT = dict(zip(
+    'qwertyuiop[]asdfghjkl;\'zxcvbnm,./`~@#$^&QWERTYUIOP{}ASDFGHJKL:"ZXCVBNM<>?Ёё',
+    'йцукенгшщзхъфывапролджэячсмитьбю.ёЁ"№;:?ЙЦУКЕНГШЩЗХЪФЫВАПРОЛДЖЭЯЧСМИТЬБЮ,.'
+))
+RU_EN_LAYOUT = {v: k for k, v in EN_RU_LAYOUT.items()}
+
+EN_UK_LAYOUT = dict(zip(
+    'qwertyuiop[]asdfghjkl;\'zxcvbnm,./`~@#$^&QWERTYUIOP{}ASDFGHJKL:"ZXCVBNM<>?ҐґЇїІіЄє',
+    'йцукенгшщзхїфівапролджєячсмитьбю.ґҐ"№;:?ЙЦУКЕНГШЩЗХЇФІВАПРОЛДЖЄЯЧСМИТЬБЮ,.'
+))
+UK_EN_LAYOUT = {v: k for k, v in EN_UK_LAYOUT.items()}
+
+EN_DE_LAYOUT = dict(zip(
+    'qwertyuiopasdfghjklzxcvbnmQWERTYUIOPASDFGHJKLZXCVBNMäöüßÄÖÜẞ',
+    'qwertzuiopasdfghjkyxcvbnmQWERTZUIOPASDFGHJKYXCVBNMäöüßÄÖÜẞ'
+))
+DE_EN_LAYOUT = {v: k for k, v in EN_DE_LAYOUT.items()}
+
+EN_FR_LAYOUT = dict(zip(
+    'azertyuiopqsdfghjklmwxcvbnAZERTYUIOPQSDFGHJKLMWXCVBNéèàçœùêâîôûëïüÿÉÈÀÇŒÙÊÂÎÔÛËÏÜŸ',
+    'qwertyuiopasdfghjklzxcvbnQWERTYUIOPASDFGHJKLZXCVBNeeeeacoeueaaioueiuyEEACOEUEAAIOUEIUY'
+))
+FR_EN_LAYOUT = {v: k for k, v in EN_FR_LAYOUT.items()}
+
+EN_ES_LAYOUT = dict(zip(
+    'qwertyuiopasdfghjklzxcvbnmQWERTYUIOPASDFGHJKLZXCVBNMñÑáéíóúüÁÉÍÓÚÜ',
+    'qwertyuiopasdfghjklzxcvbnmQWERTYUIOPASDFGHJKLZXCVBNMnNaeiouuAEIOUU'
+))
+ES_EN_LAYOUT = {v: k for k, v in EN_ES_LAYOUT.items()}
+
+EN_IT_LAYOUT = dict(zip(
+    'qwertyuiopasdfghjklzxcvbnmQWERTYUIOPASDFGHJKLZXCVBNMàèéìòùÀÈÉÌÒÙ',
+    'qwertyuiopasdfghjklzxcvbnmQWERTYUIOPASDFGHJKLZXCVBNMàèéìòùÀÈÉÌÒÙ'
+))
+IT_EN_LAYOUT = {v: k for k, v in EN_IT_LAYOUT.items()}
+
+EN_PL_LAYOUT = dict(zip(
+    'qwertyuiopasdfghjklzxcvbnmQWERTYUIOPASDFGHJKLZXCVBNMąćęłńóśźżĄĆĘŁŃÓŚŹŻ',
+    'qwertyuiopasdfghjklzxcvbnmQWERTYUIOPASDFGHJKLZXCVBNMacelnoszzACELNOSZZ'
+))
+PL_EN_LAYOUT = {v: k for k, v in EN_PL_LAYOUT.items()}
+
+EN_TR_LAYOUT = dict(zip(
+    'qwertyuiopasdfghjklzxcvbnmQWERTYUIOPASDFGHJKLZXCVBNMğüşöçİĞÜŞÖÇı',
+    'qwertyuiopasdfghjklzxcvbnmQWERTYUIOPASDFGHJKLZXCVBNMgusocIGUSOCi'
+))
+TR_EN_LAYOUT = {v: k for k, v in EN_TR_LAYOUT.items()}
+
+EN_PT_LAYOUT = dict(zip(
+    'qwertyuiopasdfghjklzxcvbnmQWERTYUIOPASDFGHJKLZXCVBNMáàâãçéêíóôõúÁÀÂÃÇÉÊÍÓÔÕÚ',
+    'qwertyuiopasdfghjklzxcvbnmQWERTYUIOPASDFGHJKLZXCVBNMaaaaceeiioouAAAACEEIIOOU'
+))
+PT_EN_LAYOUT = {v: k for k, v in EN_PT_LAYOUT.items()}
+
+EN_CS_LAYOUT = dict(zip(
+    'qwertyuiopasdfghjklzxcvbnmQWERTYUIOPASDFGHJKLZXCVBNMáčďéěíňóřšťúůýžÁČĎÉĚÍŇÓŘŠŤÚŮÝŽ',
+    'qwertyuiopasdfghjklzxcvbnmQWERTYUIOPASDFGHJKLZXCVBNMacdeeinorstuuyzACDEEINORSTUUYZ'
+))
+CS_EN_LAYOUT = {v: k for k, v in EN_CS_LAYOUT.items()}
+
+EN_HU_LAYOUT = dict(zip(
+    'qwertzuiopőúasdfghjkléáűíyxcvbnmQWERTZUIOPŐÚASDFGHJKLÉÁŰÍYXCVBNMöüóÖÜÓ',
+    'qwertyuiopouasdfghjkleaiyxcvbnmQWERTYUIOPOUASDFGHJKLEAIYXCVBNMouoOUO'
+))
+HU_EN_LAYOUT = {v: k for k, v in EN_HU_LAYOUT.items()}
+
+EN_EL_LAYOUT = dict(zip(
+    'qwertyuiopasdfghjklzxcvbnmQWERTYUIOPASDFGHJKLZXCVBNMάέήίΰαβγδεζηθικλμνξοπρσςτυφχψωΆΈΉΊΰΑΒΓΔΕΖΗΘΙΚΛΜΝΞΟΠΡΣΤΥΦΧΨΩ',
+    'qwertyuiopasdfghjklzxcvbnmQWERTYUIOPASDFGHJKLZXCVBNMaehiabgdezhthiklmnxoprssstufchpoAEHIABGDEZHTHIKLMNXOPRSSTUFCHPO'
+))
+EL_EN_LAYOUT = {v: k for k, v in EN_EL_LAYOUT.items()}
+
+EN_FI_LAYOUT = dict(zip(
+    'qwertyuiopasdfghjklzxcvbnmQWERTYUIOPASDFGHJKLZXCVBNMäöåÄÖÅ',
+    'qwertyuiopasdfghjklzxcvbnmQWERTYUIOPASDFGHJKLZXCVBNMaoaAOA'
+))
+FI_EN_LAYOUT = {v: k for k, v in EN_FI_LAYOUT.items()}
+
+EN_SV_LAYOUT = dict(zip(
+    'qwertyuiopasdfghjklzxcvbnmQWERTYUIOPASDFGHJKLZXCVBNMåäöÅÄÖ',
+    'qwertyuiopasdfghjklzxcvbnmQWERTYUIOPASDFGHJKLZXCVBNMaoaAOA'
+))
+SV_EN_LAYOUT = {v: k for k, v in EN_SV_LAYOUT.items()}
+
+EN_DA_LAYOUT = dict(zip(
+    'qwertyuiopasdfghjklzxcvbnmQWERTYUIOPASDFGHJKLZXCVBNMæøåÆØÅ',
+    'qwertyuiopasdfghjklzxcvbnmQWERTYUIOPASDFGHJKLZXCVBNMaeoAEO'
+))
+DA_EN_LAYOUT = {v: k for k, v in EN_DA_LAYOUT.items()}
+
+EN_NL_LAYOUT = dict(zip(
+    'qwertyuiopasdfghjklzxcvbnmQWERTYUIOPASDFGHJKLZXCVBNM',
+    'qwertyuiopasdfghjklzxcvbnmQWERTYUIOPASDFGHJKLZXCVBNM'
+))
+NL_EN_LAYOUT = {v: k for k, v in EN_NL_LAYOUT.items()}
+
+# Обновить LAYOUTS
+LAYOUTS.update({
+    ('en', 'it'): EN_IT_LAYOUT,
+    ('it', 'en'): IT_EN_LAYOUT,
+    ('en', 'pl'): EN_PL_LAYOUT,
+    ('pl', 'en'): PL_EN_LAYOUT,
+    ('en', 'tr'): EN_TR_LAYOUT,
+    ('tr', 'en'): TR_EN_LAYOUT,
+    ('en', 'pt'): EN_PT_LAYOUT,
+    ('pt', 'en'): PT_EN_LAYOUT,
+    ('en', 'cs'): EN_CS_LAYOUT,
+    ('cs', 'en'): CS_EN_LAYOUT,
+    ('en', 'hu'): EN_HU_LAYOUT,
+    ('hu', 'en'): HU_EN_LAYOUT,
+    ('en', 'el'): EN_EL_LAYOUT,
+    ('el', 'en'): EL_EN_LAYOUT,
+    ('en', 'fi'): EN_FI_LAYOUT,
+    ('fi', 'en'): FI_EN_LAYOUT,
+    ('en', 'sv'): EN_SV_LAYOUT,
+    ('sv', 'en'): SV_EN_LAYOUT,
+    ('en', 'da'): EN_DA_LAYOUT,
+    ('da', 'en'): DA_EN_LAYOUT,
+    ('en', 'nl'): EN_NL_LAYOUT,
+    ('nl', 'en'): NL_EN_LAYOUT,
+})
+
+# Обновить LANG_CHARSETS
+LANG_CHARSETS.update({
+    'it': set('abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZàèéìòùÀÈÉÌÒÙ'),
+    'pl': set('abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZąćęłńóśźżĄĆĘŁŃÓŚŹŻ'),
+    'tr': set('abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZğüşöçİĞÜŞÖÇı'),
+    'pt': set('abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZáàâãçéêíóôõúÁÀÂÃÇÉÊÍÓÔÕÚ'),
+    'cs': set('abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZáčďéěíňóřšťúůýžÁČĎÉĚÍŇÓŘŠŤÚŮÝŽ'),
+    'hu': set('abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZáéíóöőúüűÁÉÍÓÖŐÚÜŰ'),
+    'el': set('abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZάέήίΰαβγδεζηθικλμνξοπρσςτυφχψωΆΈΉΊΰΑΒΓΔΕΖΗΘΙΚΛΜΝΞΟΠΡΣΤΥΦΧΨΩ'),
+    'fi': set('abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZäöåÄÖÅ'),
+    'sv': set('abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZåäöÅÄÖ'),
+    'da': set('abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZæøåÆØÅ'),
+    'nl': set('abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ'),
+})
+
+def detect_charset(text: str):
+    counts = {lang: sum(c in charset for c in text) for lang, charset in LANG_CHARSETS.items()}
+    # Возвращаем язык с максимальным количеством совпадений
+    return max(counts, key=counts.get)
+
+def fix_keyboard_layout(text: str, from_lang: str, to_lang: str) -> str:
+    layout = LAYOUTS.get((from_lang, to_lang))
+    if layout:
+        return ''.join(layout.get(c, c) for c in text)
+    return text
+
+def summarize_tool_result(result, max_items=3, max_chars=500):
+    if isinstance(result, list):
+        preview = result[:max_items]
+        return f"[{', '.join(map(str, preview))} ...] (showing {min(len(result), max_items)} of {len(result)})"
+    elif isinstance(result, dict):
+        keys = list(result.keys())
+        preview = {k: result[k] for k in keys[:max_items]}
+        return f"{{{', '.join(f'{k}: {repr(v)[:60]}' for k, v in preview.items())} ...}} (showing {min(len(keys), max_items)} of {len(keys)} keys)"
+    elif isinstance(result, str) and len(result) > max_chars:
+        return result[:max_chars] + " ... (truncated)"
+    return result
+
+def remove_unwanted_code_indentation(text):
+    """Remove leading 4+ spaces from lines not inside code blocks."""
+    lines = text.split('\n')
+    in_code_block = False
+    for i, line in enumerate(lines):
+        # Detect start/end of code block
+        if line.strip().startswith('```'):
+            in_code_block = not in_code_block
+            continue
+        if not in_code_block:
+            # Remove leading 4+ spaces (but not if the line is empty)
+            lines[i] = re.sub(r'^( {4,})', '', line)
+    return '\n'.join(lines)
+
+def auto_wrap_code_blocks(text):
+    """Auto-wrap blocks of 2+ consecutive lines starting with 4+ spaces or tabs in triple backticks."""
+    import re
+    lines = text.split('\n')
+    new_lines = []
+    in_code = False
+    code_block = []
+    for line in lines:
+        if re.match(r'^( {4,}|\t+)', line):
+            code_block.append(line.lstrip())
+            in_code = True
+        else:
+            if in_code and code_block:
+                new_lines.append('```css')  # Use 'css' for CSS, or just '```' for generic
+                new_lines.extend(code_block)
+                new_lines.append('```')
+                code_block = []
+                in_code = False
+            new_lines.append(line)
+    # If code block at end
+    if code_block:
+        new_lines.append('```css')
+        new_lines.extend(code_block)
+        new_lines.append('```')
+    return '\n'.join(new_lines)
+
+def replace_all_tabs(text):
+    # Replace both escaped tabs (\\t) and literal tabs (\t) with spaces
+    return text.replace('\\t', '    ').replace('\t', '    ')
+
+def clean_markdown_artifacts(text):
+    import re
+    # Remove lines with unrecognized tags
+    text = re.sub(r'^<[^>]+>$', '', text, flags=re.MULTILINE)
+    # Remove <Feature ...>, <Details ...>, <Steps>, <ListExamples ...>, <YouTubeVideos ...>, <RelatedProduct ...>
+    text = re.sub(r'<(Feature|Details|Steps|ListExamples|YouTubeVideos|RelatedProduct)[^>]*>', '', text, flags=re.MULTILINE)
+    # Convert *** to ---
+    text = re.sub(r'^\*{3,}$', '---', text, flags=re.MULTILINE)
+    # Remove leading 4+ spaces outside code blocks
+    lines = text.split('\n')
+    in_code = False
+    for i, line in enumerate(lines):
+        if line.strip().startswith('```'):
+            in_code = not in_code
+            continue
+        if not in_code:
+            lines[i] = re.sub(r'^( {4,})', '', line)
+    return '\n'.join(lines)
+
+def truncate_json_array(data, max_items=50):
+    if isinstance(data, dict):
+        for k, v in data.items():
+            if isinstance(v, list) and len(v) > max_items:
+                data[k] = v[:max_items]
+            elif isinstance(v, dict):
+                data[k] = truncate_json_array(v, max_items)
+        return data
+    elif isinstance(data, list) and len(data) > max_items:
+        return data[:max_items]
+    return data
+
 @app.post("/chat")
 async def chat(req: ChatRequest):
-    print(f"[DEBUG] Received request with lang: {req.lang}")
+    #print(f"[DEBUG] Received request with lang: {req.lang}")
     print(f"[DEBUG] Request message: {req.message}")
     
     persona = PersonaConfig(
@@ -500,7 +806,11 @@ async def chat(req: ChatRequest):
     mcp_url = req.mcpServer  # None means LLM only
 
     try:
-        tools_context = await asyncio.wait_for(get_mcp_tools(mcp_url), timeout=15)
+        tools_context = await asyncio.wait_for(get_mcp_tools(mcp_url), timeout=30)
+        print(f"[STATUS] tools got")
+        print(f"[DEBUG] Tools context size: {len(str(tools_context))} characters")
+        #print(f"[INFO] Tools for LLM:\n{tools_context}")
+
     except asyncio.TimeoutError:
         tools_context = "Error: MCP server did not respond in time."
         print("[DEBUG] MCP server timeout.")
@@ -518,6 +828,10 @@ async def chat(req: ChatRequest):
         # MCP unavailable: skip tool logic, answer as LLM-only
         tools_context = "No tools available"
     
+    # Print the length of the tools context if it is a list or dict
+    if isinstance(tools_context, (list, dict)):
+        print(f"[INFO] Number of tools: {len(tools_context)}")
+    
     # Initialize language variables
     lang_code = "en"  # default
     lang_instruction = ""
@@ -525,62 +839,31 @@ async def chat(req: ChatRequest):
     if req.lang:
         lang_code = req.lang.split('-')[0]
         lang_instruction = f"CRITICAL: You MUST respond in the user's language (code: {lang_code}) ONLY. Do not use any other language."
-        print(f"[DEBUG] Language set to: {lang_code}")
-        print(f"[DEBUG] Language instruction: {lang_instruction}")
+        #print(f"[DEBUG] Language set to: {lang_code}")
+        #print(f"[DEBUG] Language instruction: {lang_instruction}")
     else:
         print("[DEBUG] No language specified in request")
     
-    print(f"[DEBUG] Final lang_code: {lang_code}")
-    print(f"[DEBUG] Final lang_instruction: {lang_instruction}")
+    #print(f"[DEBUG] Final lang_code: {lang_code}")
+    #print(f"[DEBUG] Final lang_instruction: {lang_instruction}")
     
-    # Instructions for tool selection stage
-    tool_selection_instructions = (
-        f"{lang_instruction}\n"
-        f"You have access to the following tools (with parameters):\n{tools_context}\n"
-        "CRITICAL INSTRUCTIONS FOR TOOL USAGE:\n"
-        "1. ONLY use tools when the user specifically requests data, information, or functionality that requires external data.\n"
-        "2. Do NOT use tools for: greetings, general conversation, questions about yourself, opinions, explanations, or creative writing.\n"
-        "3. Use tools ONLY for: price data, market information, repository details, file contents, web searches, or specific data requests.\n"
-        "4. When using a tool, respond ONLY with a JSON object in this exact format:\n"
-        '{"tool_call": {"tool": "<tool_name>", "params": {<params>}}}\n'
-        "5. Ensure ALL required parameters are provided. Do not use 'undefined' or empty values for required parameters.\n"
-        "6. For GitHub-related tools, ALWAYS provide 'repo_url' (the full URL) and 'repoName' (in the format 'owner/repo') and 'repo' (in the format 'owner/repo') and 'owner' and 'branch' ('main'). For the match_common_libs_owner_repo_mapping tool, ALWAYS provide 'library' (not 'library_name').\n"
-        "7. For general conversation, greetings, questions about yourself, or non-data requests, respond naturally without using any tools.\n"
-        "8. If no tool is needed, respond naturally to the user's question."
-    )
+    # Get MCP-specific instructions
+    tool_selection_instructions = get_mcp_instructions(mcp_url, lang_code, tools_context)
     
-    # Instructions for final answer generation (after tool results)
-    final_answer_instructions = (
-        f"{lang_instruction}\n"
-        "Provide clear, natural language answers to user questions.\n"
-        "RESPONSE FORMAT INSTRUCTIONS:\n"
-        "When providing final answers to users:\n"
-        "- Write in clear, natural language ONLY\n"
-        "- Format your response in Markdown for better readability\n"
-        "- Use **bold** for emphasis, *italic* for subtle emphasis\n"
-        "- Use bullet points (- or *) for lists\n"
-        "- Use numbered lists (1. 2. 3.) for steps or sequences\n"
-        "- Use `code` for technical terms, file names, or commands\n"
-        "- Use ```code blocks``` for longer code examples\n"
-        "- Use > for blockquotes when citing or emphasizing important information\n"
-        "- Do NOT mention which tools were used\n"
-        "- Do NOT show any JSON, arrays, or structured data\n"
-        "- Do NOT include tool call syntax or examples\n"
-        "- Do NOT mention 'thoughts', 'reasoning', or internal processes\n"
-        "- Do NOT show internal tracking data, thought numbers, or metadata\n"
-        "- Do NOT include any JSON objects, even if they appear in tool results\n"
-        "- Focus on answering the user's question directly\n"
-        "- ALWAYS include relevant links from the tool results when available\n"
-        "- Format links as [Description](URL) with descriptive text\n"
-        "- When discussing websites, social media, or resources, ALWAYS include the actual links\n"
-        "- Do not just mention that links exist - actually include them in your response\n"
-        "- Present information clearly and conversationally\n"
-        "- If there was an error, explain what went wrong and suggest alternatives\n"
-        "- NEVER include any JSON, even if it's part of the tool's internal process\n"
-        "- If you see a number that looks like a UNIX timestamp (e.g., 10 or more digits, likely in seconds since 1970), always convert it to a human-readable date in your response.\n"
-        "- When users ask about projects, repositories, or documentation, and if the project has DeepWiki documentation available, include the DeepWiki link in format: [DeepWiki Documentation](https://deepwiki.com/owner/repo). Only include this link if you know the project has DeepWiki documentation.\n"
-    )
-    print(f"[DEBUG] Tools:\n{tools_context}")
+    # Get MCP-specific final instructions
+    final_answer_instructions = get_mcp_final_instructions(mcp_url, lang_code)
+    
+    # Build conversation prompt from history (only user and assistant messages)
+    prompt = ""
+    for msg in req.history:
+        if msg.role in ["user", "assistant"] and isinstance(msg.content, str) and msg.content.strip():
+            role = "User" if msg.role == "user" else "Assistant"
+            prompt += f"{role}: {msg.content}\n"
+    prompt += f"User: {req.message}\nAssistant:"
+
+    # Print the total length of the full context (instructions + prompt) sent to the LLM
+    full_context = str(tool_selection_instructions) + str(prompt)
+    print(f"[INFO] Total LLM context length: {len(full_context)} characters")
 
     agent = Agent(
         name=persona.name,
@@ -589,17 +872,10 @@ async def chat(req: ChatRequest):
         model=model_name,
         api_key=os.environ.get("IO_API_KEY")
     )
-    # Build conversation prompt from history
-    prompt = ""
-    for msg in req.history:
-        role = "User" if msg.role == "user" else "Assistant"
-        prompt += f"{role}: {msg.content}\n"
-    prompt += f"User: {req.message}\nAssistant:"
-    print(f"[DEBUG] Final prompt sent to LLM:\n{tool_selection_instructions}\n---\n{prompt}\n---")
+    #print(f"[DEBUG] Final prompt sent to LLM:\n{tool_selection_instructions}\n---\n{prompt}\n---")
    
     response = await agent.run(prompt)
-    #print(f"[DEBUG] Initial response type: {type(response)}")
-    #print(f"[DEBUG] Initial response: {response}")
+    print(f"[DEBUG] LLM output after tool call:\n{response}")
    
     # Check if the initial response contains structured <result> blocks
     #if isinstance(response, str) and '<result>' in response and '</result>' in response:
@@ -632,10 +908,10 @@ async def chat(req: ChatRequest):
     max_tool_loops = 3
     loops = 0
     while isinstance(response, dict) and "tool_call" in response and loops < max_tool_loops:
-       # print(f"[DEBUG] Tool call loop {loops + 1}/{max_tool_loops}")
+        print("[STATUS] llm choosed tool")
         tool_name = response["tool_call"].get("tool")
         params = response["tool_call"].get("params", {})
-        print(f"[DEBUG] Calling tool: {tool_name} with params: {params}")
+        print(f"[STATUS] calling tool: {tool_name}")
         
         # Check if MCP server is available
         if not mcp_url:
@@ -647,7 +923,12 @@ async def chat(req: ChatRequest):
             print(f"[DEBUG] Tools context has error: {tools_context}")
             return {"response": f"I cannot call the tool '{tool_name}' because there was an error connecting to the MCP server: {tools_context}"}
         
-        print(f"[DEBUG] Tools context available: {len(str(tools_context))} chars")
+        # Check if the tool name is actually available in the tools context
+        if isinstance(tools_context, str) and tool_name not in tools_context:
+            print(f"[DEBUG] Tool '{tool_name}' not found in available tools: {tools_context}")
+            return {"response": f"I cannot call the tool '{tool_name}' because it's not available. Please ask me about cryptocurrency data using the available tools."}
+        
+       # print(f"[DEBUG] Tools context available: {len(str(tools_context))} chars")
         
         try:
             tool_result = await asyncio.wait_for(call_mcp_tool(mcp_url, tool_name, params), timeout=60)
@@ -659,10 +940,15 @@ async def chat(req: ChatRequest):
             }
         except Exception as e:
             print(f"[DEBUG] Tool call exception for {tool_name}: {e}")
-            tool_result = {"error": f"Tool call failed: {str(e)}"}
+            error_msg = str(e)
+            if "Unknown tool" in error_msg:
+                tool_result = {"error": f"The tool '{tool_name}' is not available. Please use one of the available tools for cryptocurrency data."}
+            else:
+                tool_result = {"error": f"Tool call failed: {error_msg}"}
         
-        print(f"[DEBUG] Tool result for {tool_name}: {tool_result}")
-        
+        # DEBUG: print raw tool_result
+        print(f"[DEBUG] Raw tool_result for {tool_name}: {repr(tool_result)}")
+
         # Convert CallToolResult to a serializable dict or string
         if hasattr(tool_result, 'output'):
             serializable_result = tool_result.output
@@ -674,53 +960,66 @@ async def chat(req: ChatRequest):
             except Exception:
                 serializable_result = str(tool_result)
         
-        # Check if the tool result contains structured <result> blocks
-        tool_result_str = str(serializable_result)
-        if '<result>' in tool_result_str and '</result>' in tool_result_str:
-            # Direct conversion to Markdown without agent processing
-            print("[DEBUG] Detected structured result blocks, converting directly to Markdown")
-            markdown_result = convert_sformat_to_markdown(tool_result_str)
-            return {"response": markdown_result}
-        
-        # Check for CallToolResult format
-        if 'CallToolResult' in tool_result_str and 'TextContent' in tool_result_str:
-            print("[DEBUG] Detected CallToolResult format, converting directly to Markdown")
-            print(f"[DEBUG] Tool result string length: {len(tool_result_str)}")
-            print(f"[DEBUG] Tool result string preview: {tool_result_str[:200]}...")
-            markdown_result = convert_calltoolresult_to_markdown(tool_result_str)
-            
-            # If markdown_result is None, it means we have JSON data that needs agent processing
-            if markdown_result is None:
-                print("[DEBUG] CallToolResult contains JSON data, proceeding to agent processing")
-                # Continue to agent processing
-            else:
-                print(f"[DEBUG] CallToolResult converted to Markdown, length: {len(markdown_result)}")
-                print(f"[DEBUG] Markdown preview: {markdown_result[:200]}...")
-                return {"response": markdown_result}
-        
-        # Fallback to agent processing for non-structured results
-        tool_result_str = json.dumps(serializable_result, indent=2, ensure_ascii=False, cls=SafeJSONEncoder)
-        
+        # Универсальная обработка результата инструмента
+        readable_result = None
+        # Попытка извлечь текст из CallToolResult/content/TextContent
+        if isinstance(serializable_result, dict) and 'content' in serializable_result:
+            content = serializable_result['content']
+            if isinstance(content, list) and content:
+                text_item = content[0]
+                text = getattr(text_item, 'text', None) or (text_item.get('text') if isinstance(text_item, dict) else None)
+                if text:
+                    try:
+                        parsed = json.loads(text)
+                        parsed = truncate_json_array(parsed, max_items=10)
+                        pretty = json.dumps(parsed, indent=2, ensure_ascii=False)
+                        if len(pretty) < 10000:
+                            readable_result = pretty
+                        else:
+                            readable_result = pretty[:10000] + "\n... (truncated)"
+                    except Exception:
+                        readable_result = text if len(text) < 10000 else text[:10000] + "\n... (truncated)"
+        # Если не CallToolResult, но результат простой (dict, list, str)
+        if readable_result is None:
+            if isinstance(serializable_result, (dict, list)):
+                try:
+                    result_str = json.dumps(serializable_result, indent=2, ensure_ascii=False)
+                except Exception:
+                    result_str = str(serializable_result)
+                if len(result_str) < 10000:
+                    readable_result = result_str
+                else:
+                    readable_result = result_str[:10000] + "\n... (truncated)"
+            elif isinstance(serializable_result, str):
+                readable_result = serializable_result if len(serializable_result) < 10000 else serializable_result[:10000] + "\n... (truncated)"
+        if not readable_result:
+            readable_result = summarize_tool_result(serializable_result)
+        print(f"[DEBUG] readable_result for {tool_name}: {repr(readable_result)}")
+        summarized_result = readable_result
+        summarized_result_str = str(summarized_result)
         # Create a new agent with final answer instructions for processing tool results
         final_answer_agent = Agent(
             name=persona.name,
             instructions=final_answer_instructions,
             persona=persona,
             model=model_name,
-            api_key=os.environ.get("IO_API_KEY")
         )
-        
         tool_prompt = (
             prompt
-            + f"\n[Tool {tool_name} result: {tool_result_str}]\n"
+            + f"\n[Tool {tool_name} result: {summarized_result_str}]\n"
             + f"CRITICAL: You MUST respond in the user's language (code: {lang_code}) ONLY. Do not use any other language.\n"
             + "Assistant: Based on the tool result above, provide a helpful answer to the user's original question. "
             + "IMPORTANT: If the tool result contains any URLs or links, you MUST include them in your response. "
             + "Format all links as [Description](URL) with descriptive text. "
             + "Do not just mention that links exist - actually include them in your response."
         )
+        print(f"[DEBUG] tool_prompt for {tool_name}: {tool_prompt}")
+        # Print the total length of the full context (final instructions + tool_prompt) for the final answer
+        final_full_context = str(final_answer_instructions) + str(tool_prompt)
+        print(f"[INFO] Total FINAL LLM context length: {len(final_full_context)} characters")
         
         response = await final_answer_agent.run(tool_prompt)
+        #print(f"[DEBUG] LLM output after tool post-processing:\n{response}")
         
        
         loops += 1
@@ -728,6 +1027,7 @@ async def chat(req: ChatRequest):
         if isinstance(response, dict) and "tool_call" in response:
             print("[DEBUG] LLM output another tool call after tool result, breaking")
             return {"response": "I could not generate a natural language answer after using the tool."}
+       # print(f"[STATUS] result got for tool: {tool_name}")
     # Ensure response is always a string for the frontend
     if isinstance(response, dict):
         # Check if this is still a tool call that wasn't processed
@@ -738,10 +1038,20 @@ async def chat(req: ChatRequest):
         main_message = response.get("result") or response.get("output") or str(response)
         # Process the response for Markdown conversion
         processed_message = process_response_for_markdown(main_message)
+        # Replace tabs with spaces as the final step
+        if isinstance(processed_message, str):
+            #print(f"[DEBUG] Before tab replace: {repr(processed_message[:200])} (length: {len(processed_message)})")
+            processed_message = processed_message.replace('\t', ' ').replace('\t', ' ')
+            #print(f"[DEBUG] After tab replace: {repr(processed_message[:200])} (length: {len(processed_message)})")
         return {"response": processed_message}
     
     # Process string response for Markdown conversion
     processed_response = process_response_for_markdown(response)
+    # Replace tabs with spaces as the final step
+    if isinstance(processed_response, str):
+        print(f"[DEBUG] Before tab replace: {repr(processed_response[:200])} (length: {len(processed_response)})")
+        processed_response = processed_response.replace('\t', ' ').replace('\t', ' ')
+        print(f"[DEBUG] After tab replace: {repr(processed_response[:200])} (length: {len(processed_response)})")
     return {"response": processed_response}
 
 @app.get("/models")
@@ -755,12 +1065,26 @@ async def get_mcp_tools_endpoint(mcp_url: str):
         return {"tools": "No MCP server URL provided"}
     
     try:
-        tools_context = await asyncio.wait_for(get_mcp_tools(mcp_url), timeout=15)
+        tools_context = await asyncio.wait_for(get_mcp_tools(mcp_url), timeout=30)
         return {"tools": tools_context}
     except asyncio.TimeoutError:
         return {"tools": "Error: MCP server did not respond in time."}
     except Exception as e:
         return {"tools": f"Error fetching tools: {str(e)}"}
+
+@app.post("/fix-layout")
+async def fix_layout(request: Request):
+    data = await request.json()
+    text = data.get("text", "")
+    lang = data.get("lang", "en")
+    if not text.strip():
+        return {"fixed_text": text}
+
+    detected = detect_charset(text)
+    if lang != detected and (detected, lang) in LAYOUTS:
+        fixed = fix_keyboard_layout(text, detected, lang)
+        return {"fixed_text": fixed}
+    return {"fixed_text": text}
 
 if __name__ == "__main__":
     uvicorn.run("main:app", host="0.0.0.0", port=8000, reload=True)

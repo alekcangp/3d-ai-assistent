@@ -48,6 +48,7 @@
             :messages="messages"
             :isProcessing="isProcessing"
             :isSpeaking="isSpeaking"
+            :lang="selectedLang"
             @sendMessage="handleMessage"
             @userTyping="handleStopSpeaking"
           />
@@ -174,25 +175,21 @@ const updatePersonalityConfig = (newConfig: Partial<PersonalityConfig>) => {
 }
 
 async function sendToIOIntel(message: string) {
-  // Prepare last 5 messages as history (excluding system messages)
+  // Prepare last 5 messages as history (only user questions and AI answers)
   const history = messages.value
-    .filter(m => m.role && typeof m.content === 'string')
+    .filter(m => m.role === 'user' || m.role === 'assistant')
+    .filter(m => typeof m.content === 'string' && m.content.trim() !== '')
     .map(m => ({ role: m.role, content: m.content }))
-    .slice(-5)
+    .slice(-5) // Keep last 5 messages for better context
   
   // Use selectedLang.value as primary source, personalityConfig.value.lang as fallback
   let langToSend = selectedLang.value || personalityConfig.value.lang
-  console.log('[DEBUG] Initial langToSend:', langToSend)
-  console.log('[DEBUG] selectedLang.value:', selectedLang.value)
-  console.log('[DEBUG] personalityConfig.value.lang:', personalityConfig.value.lang)
   
   if (!langToSend || langToSend === 'system') {
     langToSend = navigator.language
-    console.log('[DEBUG] Using navigator.language:', langToSend)
   }
   
   if (langToSend.includes('-')) langToSend = langToSend.split('-')[0] // Normalize to 'ru', 'en', etc.
-  console.log('[DEBUG] Final langToSend after normalization:', langToSend)
   
   // Exclude 'lang' from traits
   const { lang, ...traitsWithoutLang } = personalityConfig.value
@@ -213,7 +210,6 @@ async function sendToIOIntel(message: string) {
 }
 
 const handleMessage = async (content: string) => {
-  console.log('handleMessage called with:', content)
   if (!content || !content.trim()) {
     // Do not process empty messages (e.g., user stopped speaking)
     return;
@@ -228,7 +224,6 @@ const handleMessage = async (content: string) => {
 
   messages.value.push(userMessage)
   isProcessing.value = true
-  console.log('Processing started - input should be disabled')
 
   try {
     // Use IOIntel backend for persona-driven response
@@ -246,13 +241,11 @@ const handleMessage = async (content: string) => {
     messages.value.push(aiMessage)
     // Set processing to false after receiving response, before speaking
     isProcessing.value = false
-    console.log('Processing finished - input should be enabled')
     // Animate avatar and speak response as before
     if (avatarCanvas.value) {
       avatarCanvas.value.playAnimation('speaking')
     }
     isSpeaking.value = true
-    console.log('Speaking started - input should be enabled for interruption')
     await speak(aiResponse, () => {
       if (mouthTween) mouthTween.kill()
       mouthTween = gsap.to(mouthOpenLevel, {
@@ -271,12 +264,10 @@ const handleMessage = async (content: string) => {
     if (mouthTween) mouthTween.kill()
     mouthTween = gsap.to(mouthOpenLevel, { value: 0, duration: 0.15 })
     isSpeaking.value = false
-    console.log('Speaking finished - input should remain enabled')
     if (avatarCanvas.value) {
       avatarCanvas.value.playAnimation('idle')
     }
   } catch (error: any) {
-    console.error('Error processing message:', error)
     // Ignore speech synthesis errors
     if (
       (typeof window !== 'undefined' && typeof window.SpeechSynthesisErrorEvent !== 'undefined' && error instanceof window.SpeechSynthesisErrorEvent) ||
@@ -296,7 +287,13 @@ const handleMessage = async (content: string) => {
       messages.value.push(errorMessage)
     }
   } finally {
-    saveMessages(messages.value)
+    // Save only user and assistant messages, filter out system messages and empty content
+    const messagesToSave = messages.value.filter(m => 
+      (m.role === 'user' || m.role === 'assistant') && 
+      typeof m.content === 'string' && 
+      m.content.trim() !== ''
+    )
+    saveMessages(messagesToSave)
   }
 }
 
@@ -307,7 +304,6 @@ const startVoiceInput = () => {
   }
   startListening(
     (transcript: string) => {
-      console.log('Voice transcript:', transcript)
       if (transcript && transcript.trim()) {
         handleMessage(transcript)
       }
@@ -359,7 +355,12 @@ onMounted(async () => {
   personalityConfig.value = { ...personalityConfig.value, ...(savedPersonalityConfig || {}) }
   
   const savedMessages = await loadMessages()
-  messages.value = savedMessages || []
+  // Filter loaded messages to ensure only user and assistant messages are loaded
+  messages.value = (savedMessages || []).filter((m: Message) => 
+    (m.role === 'user' || m.role === 'assistant') && 
+    typeof m.content === 'string' && 
+    m.content.trim() !== ''
+  )
 
   // Load saved MCP server
   let savedMcpServer = await loadFromStorage('mcpServer', null)
@@ -368,16 +369,12 @@ onMounted(async () => {
 
   // Load selectedLang and set it in personalityConfig
   const lang = await loadFromStorage('selectedLang')
-  console.log('[DEBUG] Loaded lang from storage:', lang)
   if (lang) {
     selectedLang.value = lang
     personalityConfig.value.lang = lang
-    console.log('[DEBUG] Set selectedLang.value to:', selectedLang.value)
-    console.log('[DEBUG] Set personalityConfig.value.lang to:', personalityConfig.value.lang)
   } else {
     selectedLang.value = 'system'
     personalityConfig.value.lang = 'system'
-    console.log('[DEBUG] Set to system default')
   }
   
   // Save the updated personalityConfig with the correct lang
@@ -430,7 +427,6 @@ onMounted(async () => {
     }
     saveToStorage('selectedModel', selectedModel.value)
   } catch (error) {
-    console.error('Failed to initialize AI:', error)
     isLoading.value = false
   }
 })
@@ -473,15 +469,11 @@ function onUpdateLang(lang: string) {
   personalityConfig.value.lang = lang
   saveToStorage('selectedLang', lang)
   saveToStorage('personalityConfig', personalityConfig.value)
-  console.log('[DEBUG] Language updated - selectedLang:', selectedLang.value, 'personalityConfig.lang:', personalityConfig.value.lang)
 }
 
 function getCurrentLang() {
   // Use selectedLang.value as primary source
   let lang = selectedLang.value
-  console.log('[DEBUG] getCurrentLang() - selectedLang.value:', selectedLang.value)
-  console.log('[DEBUG] getCurrentLang() - personalityConfig.lang:', personalityConfig.value.lang)
-  console.log('[DEBUG] getCurrentLang() - navigator.language:', navigator.language)
   
   if (!lang || lang === 'system') {
     lang = navigator.language
@@ -494,12 +486,10 @@ function getCurrentLang() {
     lang = 'en-US'
   }
   
-  console.log('[DEBUG] getCurrentLang() - returning:', lang)
   return lang
 }
 
 function handleStopSpeaking() {
-  console.log('handleStopSpeaking called - stopping speech')
   stopSpeaking();
   isSpeaking.value = false;
   if (avatarCanvas.value) {

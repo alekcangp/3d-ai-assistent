@@ -79,7 +79,7 @@
             <p>{{ error }}</p>
           </div>
           <div v-else class="tools-list">
-            <pre>{{ tools }}</pre>
+            <div v-html="toolsHtml"></div>
           </div>
         </div>
       </div>
@@ -88,8 +88,10 @@
 </template>
 
 <script setup lang="ts">
-import { defineProps, defineEmits, computed, ref, watch } from 'vue'
+import { defineProps, defineEmits, computed, ref, watch, onMounted, onUnmounted } from 'vue'
 import { mcpServers } from '../constants/mcpServers'
+import { marked } from 'marked'
+marked.setOptions({ breaks: true, gfm: true })
 
 const props = defineProps({
   isDarkMode: Boolean,
@@ -161,6 +163,26 @@ async function fetchTools() {
     loading.value = false
   }
 }
+
+const toolsHtml = computed(() => tools.value ? marked.parse(tools.value) : '')
+
+let keepAliveInterval: number | undefined
+
+onMounted(() => {
+  // Periodically fetch /models every 10 minutes to keep backend awake
+  const API_URL = (import.meta.env.VITE_BACKEND_URL || 'http://localhost:8000').replace(/\/$/, '')
+  keepAliveInterval = window.setInterval(async () => {
+    try {
+      await fetch(`${API_URL}/models`)
+    } catch (e) {
+      // Ignore errors
+    }
+  }, 10 * 60 * 1000)
+})
+
+onUnmounted(() => {
+  if (keepAliveInterval) clearInterval(keepAliveInterval)
+})
 </script>
 
 <style scoped>
@@ -468,9 +490,14 @@ async function fetchTools() {
 
 .tools-list {
   color: #e2e8f0;
-  font-family: 'Monaco', 'Menlo', 'Ubuntu Mono', monospace;
   font-size: 0.9rem;
   line-height: 1.5;
+}
+:deep(.tools-list strong), :deep(.tools-list b) {
+  color: #00fff0 !important;
+}
+.tools-list code, .tools-list pre {
+  font-family: 'Monaco', 'Menlo', 'Ubuntu Mono', monospace;
 }
 
 .tools-list pre {

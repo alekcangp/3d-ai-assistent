@@ -22,6 +22,7 @@ A modern web application featuring a 3D animated AI avatar with real-time facial
 - **Markdown Rendering**: Rich text formatting with code blocks, lists, and links
 - **Message History**: Persistent chat history with local storage
 - **Copy Functionality**: Easy copying of user messages with visual feedback
+- **Keyboard Layout Correction:** Instantly fix keyboard layout mistakes in your chat input with a single click.
 
 ### 🔧 Advanced Features
 - **MCP Server Integration**: Connect to external tools and data sources
@@ -35,6 +36,7 @@ A modern web application featuring a 3D animated AI avatar with real-time facial
 - **Error Handling**: Graceful error handling with user-friendly messages
 - **Performance Optimized**: Efficient rendering and minimal resource usage
 - **Cross-platform**: Works on all modern browsers
+
 
 ## 🏗 Architecture
 

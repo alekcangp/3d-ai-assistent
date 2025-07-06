@@ -10,7 +10,7 @@
         <template v-if="message && typeof message.content === 'string' && message.id">
           <div class="message-content">
             <template v-if="message.role === 'assistant'">
-              <div v-html="marked(typeof message.content === 'string' ? message.content : String(message.content))"></div>
+              <div v-html="marked(cleanMarkdown(typeof message.content === 'string' ? message.content : String(message.content)))"></div>
             </template>
             <template v-else>
               <div class="user-message-wrapper">
@@ -47,6 +47,15 @@
     
     <div class="input-container">
       <div class="input-wrapper">
+        <button 
+          class="fix-layout-btn"
+          :disabled="isProcessing || !inputText.trim() || isFixingLayout"
+          @click="fixLayout"
+          title="Fix keyboard layout"
+        >
+          <span v-if="!isFixingLayout" style="font-size: 1.25em; line-height: 1;">⇄</span>
+          <span v-else style="font-size: 0.9em;">...</span>
+        </button>
         <input 
           v-model="inputText"
           type="text" 
@@ -83,10 +92,14 @@ marked.setOptions({
   gfm: true     // GitHub Flavored Markdown
 })
 
+// Определяем API_URL для запросов к backend
+const API_URL = (import.meta.env.VITE_BACKEND_URL || 'http://localhost:8000').replace(/\/$/, '')
+
 const props = defineProps<{
   messages: Message[]
   isProcessing: boolean
   isSpeaking: boolean
+  lang?: string
 }>()
 
 const emit = defineEmits<{
@@ -98,13 +111,30 @@ const inputText = ref('')
 const messagesContainer = ref<HTMLElement>()
 const hasTyped = ref(false)
 const copyStatus = ref<string | null>(null)
+const isFixingLayout = ref(false)
+
+const scrollToLatest = () => {
+  nextTick(() => {
+    if (!messagesContainer.value) return
+    const messageEls = messagesContainer.value.querySelectorAll('.message')
+    if (messageEls.length === 0) return
+    const lastMessageEl = messageEls[messageEls.length - 1] as HTMLElement
+    // Scroll the last message into view at the top of the container
+    lastMessageEl.scrollIntoView({ block: 'start', behavior: 'smooth' })
+    // Optionally, also scroll inner content to top
+    const contentEl = lastMessageEl.querySelector('.message-content')
+    if (contentEl) contentEl.scrollTop = 0
+    const preEls = lastMessageEl.querySelectorAll('pre')
+    preEls.forEach(pre => { pre.scrollTop = 0 })
+  })
+}
 
 const sendMessage = () => {
   if (!inputText.value.trim() || props.isProcessing) return
-  
   emit('sendMessage', inputText.value.trim())
   inputText.value = ''
   hasTyped.value = false // Reset typing flag when message is sent
+  scrollToLatest() // Focus on the new user message
 }
 
 const copyMessage = async (content: string) => {
@@ -140,18 +170,6 @@ const formatTime = (ts: any) => {
   }).format(date);
 }
 
-const scrollToBottom = () => {
-  nextTick(() => {
-    if (messagesContainer.value) {
-      messagesContainer.value.scrollTop = messagesContainer.value.scrollHeight
-    }
-  })
-}
-
-// Watch for new messages and scroll to bottom
-watch(() => props.messages.length, scrollToBottom)
-watch(() => props.isProcessing, scrollToBottom)
-
 // Reset typing flag when processing starts
 watch(() => props.isProcessing, (isProcessing) => {
   if (isProcessing) {
@@ -165,6 +183,52 @@ const handleUserTyping = () => {
     emit('userTyping')
     hasTyped.value = true
   }
+}
+
+async function fixLayout() {
+  if (!inputText.value.trim() || isFixingLayout.value) return
+  isFixingLayout.value = true
+  try {
+    let lang = props.lang
+    if (!lang || lang === 'system') {
+      lang = navigator.language.split('-')[0] // e.g., 'en-US' -> 'en'
+    }
+    const res = await fetch(`${API_URL}/fix-layout`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ text: inputText.value, lang })
+    })
+    const data = await res.json()
+    if (data && typeof data.fixed_text === 'string') {
+      inputText.value = data.fixed_text
+    }
+  } catch (e) {
+    console.error('Failed to fix layout:', e)
+  } finally {
+    isFixingLayout.value = false
+  }
+}
+
+// Watch for new messages and scroll to latest
+watch(() => props.messages.length, scrollToLatest)
+
+// Функция для очистки табуляций и лишних отступов
+function cleanMarkdown(text: string): string {
+  // 1. Заменить все \t, \n, \r на соответствующие символы
+  let cleaned = text.replace(/\\t/g, '    ')
+    .replace(/\\n/g, '\n')
+    .replace(/\\r/g, '\r')
+    .replace(/\t/g, '    ')
+
+  // 2. Удалить ведущие 4+ пробела вне code block
+  let inCodeBlock = false
+  cleaned = cleaned.split('\n').map(line => {
+    if (line.trim().startsWith('```')) inCodeBlock = !inCodeBlock
+    if (!inCodeBlock) return line.replace(/^ {4,}/, '')
+    return line
+  }).join('\n')
+
+  return cleaned
 }
 </script>
 
@@ -224,6 +288,9 @@ const handleUserTyping = () => {
   padding: 0.75rem 1rem;
   border-radius: 18px;
   position: relative;
+  word-break: break-word;
+  overflow-x: auto;
+  overflow-wrap: anywhere;
 }
 
 .message.user .message-content {
@@ -254,6 +321,8 @@ const handleUserTyping = () => {
   margin: 0;
   line-height: 1.5;
   flex: 1;
+  word-break: break-word;
+  overflow-wrap: anywhere;
 }
 
 .copy-button {
@@ -284,6 +353,31 @@ const handleUserTyping = () => {
 .message-content p {
   margin: 0;
   line-height: 1.5;
+  word-break: break-word;
+  overflow-wrap: anywhere;
+}
+
+.message-content code {
+  max-width: 100%;
+  overflow-x: auto;
+  word-break: break-word;
+  overflow-wrap: anywhere;
+  white-space: pre-wrap;
+  box-sizing: border-box;
+}
+
+.message-content pre {
+  background: #23272e;
+  color: #e2e8f0;
+  border-radius: 8px;
+  padding: 0.75em 1em;
+  font-size: 0.95em;
+  margin: 0.5em 0;
+  max-width: 100%;
+  overflow-x: auto;
+  word-break: break-word;
+  overflow-wrap: anywhere;
+  white-space: pre-wrap;
 }
 
 .timestamp {
@@ -413,5 +507,51 @@ const handleUserTyping = () => {
     transform: scale(1);
     opacity: 1;
   }
+}
+
+.fix-layout-btn {
+  background: linear-gradient(90deg, #f3f4f6 0%, #e5e7eb 100%);
+  color: #374151;
+  border: none;
+  border-radius: 14px;
+  width: 34px;
+  height: 34px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  margin-right: 8px;
+  margin-left: 0;
+  cursor: pointer;
+  transition: background 0.18s, box-shadow 0.18s, transform 0.18s, color 0.18s;
+  box-shadow: 0 1px 4px rgba(100, 116, 139, 0.08);
+  outline: none;
+  font-size: 0.8em;
+  position: relative;
+}
+.dark .fix-layout-btn {
+  background: linear-gradient(90deg, #374151 0%, #4b5563 100%);
+  color: #f3f4f6;
+  box-shadow: 0 2px 8px rgba(100, 116, 139, 0.13);
+}
+.fix-layout-btn:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+  filter: grayscale(0.3);
+  box-shadow: none;
+  transform: none;
+}
+.fix-layout-btn:hover:not(:disabled), .fix-layout-btn:focus-visible:not(:disabled) {
+  background: linear-gradient(90deg, #e5e7eb 0%, #d1d5db 100%);
+  color: #111827;
+  box-shadow: 0 4px 16px rgba(100, 116, 139, 0.13);
+  transform: scale(1.08);
+}
+.dark .fix-layout-btn:hover:not(:disabled), .dark .fix-layout-btn:focus-visible:not(:disabled) {
+  background: linear-gradient(90deg, #4b5563 0%, #6b7280 100%);
+  color: #fff;
+}
+.fix-layout-btn span {
+  font-size: 0.9em;
+  line-height: 1;
 }
 </style>
