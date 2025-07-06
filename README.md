@@ -138,6 +138,8 @@ The blueprint will create:
 - **Frontend Service**: Static site deployment
 - **Backend Service**: Python API deployment
 
+**⚠️ Important Note:** The backend is deployed on Render's free tier, which means it will sleep after 15 minutes of inactivity. The first request after inactivity may take 30-60 seconds to wake up the service.
+
 ### Environment Variables
 
 **Backend (.env)**
@@ -202,3 +204,4 @@ This project is licensed under the MIT License - see the [LICENSE](LICENSE) file
 
 - **[IOIntel](https://iointel.ai)** for advanced AI model integration
 - **[MCP Protocol](https://modelcontextprotocol.io)** for external tool integration
+
