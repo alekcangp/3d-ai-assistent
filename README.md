@@ -145,12 +145,12 @@ The blueprint will create:
 **Backend (.env)**
 ```env
 IO_API_KEY=your_iointel_api_key
-API_URL=https://your-frontend.onrender.com
+FRONTEND_URL=https://your-frontend.onrender.com
 ```
 
 **Frontend (Render Environment)**
 ```env
-VITE_API_URL=https://your-backend.onrender.com
+VITE_BACKEND_URL=https://your-backend.onrender.com
 ```
 
 ## 🔧 Configuration
