@@ -97,86 +97,92 @@ export function useSpeech() {
       utterance.rate = 0.9
       utterance.pitch = 1.0
       utterance.volume = 0.8
-    utterance.lang = lang
+      utterance.lang = lang
 
-    // Wait for voices to be loaded
-    const voices = await getVoicesAsync()
-    // Prefer a voice that matches the requested language
-    const preferredVoice = voices.find(voice => voice.lang === lang && (voice.name.includes('Natural') || voice.name.includes('Enhanced') || voice.name.includes('Premium')))
-      || voices.find(voice => voice.lang === lang)
-      || voices.find(voice => voice.lang.startsWith(lang.split('-')[0]))
-      || voices.find(voice => voice.lang.startsWith('en'))
+      // Wait for voices to be loaded
+      const voices = await getVoicesAsync()
+      console.log('[DEBUG] Available voices:', voices.map(v => `${v.name} (${v.lang})`))
+      
+      // Prefer a voice that matches the requested language
+      let preferredVoice = voices.find(voice => voice.lang === lang && (voice.name.includes('Natural') || voice.name.includes('Enhanced') || voice.name.includes('Premium')))
+        || voices.find(voice => voice.lang === lang)
+        || voices.find(voice => voice.lang.startsWith(lang.split('-')[0]))
+        || voices.find(voice => voice.lang.startsWith('ru'))
+        || voices.find(voice => voice.lang.startsWith('en'))
+      
       if (preferredVoice) {
         utterance.voice = preferredVoice
-    } else {
-      if (lang !== 'en-US') {
-        alert('No voice found for the selected language (' + lang + '). Please install a Russian voice in your system settings.')
-      }
-    }
-
-    if (onBoundary) {
-      utterance.onboundary = () => {
-        onBoundary()
-      }
-    }
-
-    return new Promise((resolve, reject) => {
-      utterance.onend = () => {
-        if ('speechSynthesis' in window && 'AudioContext' in window) {
-          const audioCtx = new (window.AudioContext || (window as any).webkitAudioContext)()
-          const analyser = audioCtx.createAnalyser()
-          analyser.fftSize = 2048
-          const dataArray = new Uint8Array(analyser.fftSize)
-          let animationId: number | null = null
-
-          // Create a dummy oscillator to keep the context alive (Safari fix)
-          const osc = audioCtx.createOscillator()
-          osc.connect(audioCtx.destination)
-          osc.start()
-          osc.stop(audioCtx.currentTime + 0.01)
-
-          // Try to capture system audio (speech synthesis output)
-          // This only works if the browser supports audio capture from speech synthesis
-          // Fallback: set amplitude to 0.5 while speaking
-          function updateAmplitude() {
-            analyser.getByteTimeDomainData(dataArray)
-            // Calculate RMS amplitude
-            let sum = 0
-            for (let i = 0; i < dataArray.length; i++) {
-              const val = (dataArray[i] - 128) / 128
-              sum += val * val
-            }
-            const rms = Math.sqrt(sum / dataArray.length)
-            speechAmplitude.value = rms
-            animationId = requestAnimationFrame(updateAmplitude)
-          }
-
-          // Start amplitude updates
-          speechAmplitude.value = 0.3
-          animationId = requestAnimationFrame(updateAmplitude)
-
-          // When speech ends, stop updates
-          const cleanup = () => {
-            if (animationId) cancelAnimationFrame(animationId)
-            speechAmplitude.value = 0
-            if (audioCtx && audioCtx.state !== 'closed') audioCtx.close()
-          }
-          (window as any).speechSynthesis.addEventListener('end', cleanup, { once: true })
-        } else {
-          // Fallback: set amplitude to 0.3 while speaking
-          speechAmplitude.value = 0.3;
-          (window as any).speechSynthesis.addEventListener('end', () => { speechAmplitude.value = 0 }, { once: true })
+        console.log('[DEBUG] Selected voice:', preferredVoice.name, 'for language:', lang)
+      } else {
+        console.warn('[DEBUG] No suitable voice found for language:', lang)
+        if (lang !== 'en-US') {
+          console.warn('No voice found for the selected language (' + lang + '). Please install a Russian voice in your system settings.')
         }
-        resolve()
       }
-      utterance.onerror = (event) => {
-        console.error('Speech synthesis error:', event)
-        reject(event)
+
+      if (onBoundary) {
+        utterance.onboundary = () => {
+          onBoundary()
+        }
       }
-      if (synthesis) {
-        synthesis.speak(utterance)
-      }
-    })
+
+      return new Promise((resolve, reject) => {
+        utterance.onend = () => {
+          if ('speechSynthesis' in window && 'AudioContext' in window) {
+            const audioCtx = new (window.AudioContext || (window as any).webkitAudioContext)()
+            const analyser = audioCtx.createAnalyser()
+            analyser.fftSize = 2048
+            const dataArray = new Uint8Array(analyser.fftSize)
+            let animationId: number | null = null
+
+            // Create a dummy oscillator to keep the context alive (Safari fix)
+            const osc = audioCtx.createOscillator()
+            osc.connect(audioCtx.destination)
+            osc.start()
+            osc.stop(audioCtx.currentTime + 0.01)
+
+            // Try to capture system audio (speech synthesis output)
+            // This only works if the browser supports audio capture from speech synthesis
+            // Fallback: set amplitude to 0.5 while speaking
+            function updateAmplitude() {
+              analyser.getByteTimeDomainData(dataArray)
+              // Calculate RMS amplitude
+              let sum = 0
+              for (let i = 0; i < dataArray.length; i++) {
+                const val = (dataArray[i] - 128) / 128
+                sum += val * val
+              }
+              const rms = Math.sqrt(sum / dataArray.length)
+              speechAmplitude.value = rms
+              animationId = requestAnimationFrame(updateAmplitude)
+            }
+
+            // Start amplitude updates
+            speechAmplitude.value = 0.3
+            animationId = requestAnimationFrame(updateAmplitude)
+
+            // When speech ends, stop updates
+            const cleanup = () => {
+              if (animationId) cancelAnimationFrame(animationId)
+              speechAmplitude.value = 0
+              if (audioCtx && audioCtx.state !== 'closed') audioCtx.close()
+            }
+            (window as any).speechSynthesis.addEventListener('end', cleanup, { once: true })
+          } else {
+            // Fallback: set amplitude to 0.3 while speaking
+            speechAmplitude.value = 0.3;
+            (window as any).speechSynthesis.addEventListener('end', () => { speechAmplitude.value = 0 }, { once: true })
+          }
+          resolve()
+        }
+        utterance.onerror = (event) => {
+          console.error('Speech synthesis error:', event)
+          reject(event)
+        }
+        if (synthesis) {
+          synthesis.speak(utterance)
+        }
+      })
   }
 
   const stopSpeaking = () => {

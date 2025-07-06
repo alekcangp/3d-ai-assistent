@@ -13,7 +13,21 @@
               <div v-html="marked(typeof message.content === 'string' ? message.content : String(message.content))"></div>
             </template>
             <template v-else>
-              <p>{{ message.content }}</p>
+              <div class="user-message-wrapper">
+                <p>{{ message.content }}</p>
+                <button 
+                  @click="copyMessage(message.content)"
+                  class="copy-button"
+                  :title="copyStatus === message.id ? 'Скопировано!' : 'Копировать сообщение'"
+                >
+                  <svg v-if="copyStatus !== message.id" viewBox="0 0 24 24" fill="currentColor" class="copy-icon">
+                    <path d="M16 1H4c-1.1 0-2 .9-2 2v14h2V3h12V1zm3 4H8c-1.1 0-2 .9-2 2v14c0 1.1.9 2 2 2h11c1.1 0 2-.9 2-2V7c0-1.1-.9-2-2-2zm0 16H8V7h11v14z"/>
+                  </svg>
+                  <svg v-else viewBox="0 0 24 24" fill="currentColor" class="copy-icon">
+                    <path d="M9 16.17L4.83 12l-1.42 1.41L9 19 21 7l-1.41-1.41z"/>
+                  </svg>
+                </button>
+              </div>
             </template>
             <span class="timestamp">{{ formatTime(message.timestamp) }}</span>
           </div>
@@ -83,6 +97,7 @@ const emit = defineEmits<{
 const inputText = ref('')
 const messagesContainer = ref<HTMLElement>()
 const hasTyped = ref(false)
+const copyStatus = ref<string | null>(null)
 
 const sendMessage = () => {
   if (!inputText.value.trim() || props.isProcessing) return
@@ -90,6 +105,29 @@ const sendMessage = () => {
   emit('sendMessage', inputText.value.trim())
   inputText.value = ''
   hasTyped.value = false // Reset typing flag when message is sent
+}
+
+const copyMessage = async (content: string) => {
+  try {
+    await navigator.clipboard.writeText(content)
+    copyStatus.value = content
+    setTimeout(() => {
+      copyStatus.value = null
+    }, 2000)
+  } catch (err) {
+    console.error('Failed to copy message:', err)
+    // Fallback for older browsers
+    const textArea = document.createElement('textarea')
+    textArea.value = content
+    document.body.appendChild(textArea)
+    textArea.select()
+    document.execCommand('copy')
+    document.body.removeChild(textArea)
+    copyStatus.value = content
+    setTimeout(() => {
+      copyStatus.value = null
+    }, 2000)
+  }
 }
 
 const formatTime = (ts: any) => {
@@ -206,6 +244,43 @@ const handleUserTyping = () => {
   color: #f9fafb;
 }
 
+.user-message-wrapper {
+  display: flex;
+  align-items: flex-start;
+  gap: 0.5rem;
+}
+
+.user-message-wrapper p {
+  margin: 0;
+  line-height: 1.5;
+  flex: 1;
+}
+
+.copy-button {
+  background: none;
+  border: none;
+  color: rgba(255, 255, 255, 0.7);
+  cursor: pointer;
+  padding: 0.25rem;
+  border-radius: 4px;
+  transition: all 0.2s ease;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 24px;
+  height: 24px;
+}
+
+.copy-button:hover {
+  background: rgba(255, 255, 255, 0.1);
+  color: rgba(255, 255, 255, 0.9);
+}
+
+.copy-icon {
+  width: 16px;
+  height: 16px;
+}
+
 .message-content p {
   margin: 0;
   line-height: 1.5;
@@ -255,16 +330,11 @@ const handleUserTyping = () => {
   flex: 1;
   padding: 0.75rem 1rem;
   border: 1px solid #d1d5db;
-  border-radius: 20px;
-  outline: none;
-  transition: all 0.2s ease;
+  border-radius: 12px;
+  font-size: 0.875rem;
   background: white;
-  color: #1f2937;
-}
-
-.message-input:focus {
-  border-color: #3b82f6;
-  box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.1);
+  transition: border-color 0.2s ease;
+  outline: none;
 }
 
 .dark .message-input {
@@ -273,183 +343,75 @@ const handleUserTyping = () => {
   color: #f9fafb;
 }
 
-.dark .message-input:focus {
+.message-input:focus {
   border-color: #3b82f6;
+  box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.1);
+}
+
+.dark .message-input:focus {
+  border-color: #60a5fa;
+  box-shadow: 0 0 0 3px rgba(96, 165, 250, 0.1);
+}
+
+.message-input:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
 }
 
 .send-button {
-  background: linear-gradient(90deg, #3b82f6 0%, #6366f1 100%);
-  color: #fff;
+  background: #3b82f6;
+  color: white;
   border: none;
-  border-radius: 18px;
-  width: 54px;
-  height: 44px;
+  border-radius: 12px;
+  padding: 0.75rem;
+  cursor: pointer;
+  transition: all 0.2s ease;
   display: flex;
   align-items: center;
   justify-content: center;
-  cursor: pointer;
-  transition: background 0.18s, box-shadow 0.18s, transform 0.18s, filter 0.18s;
-  box-shadow: 0 2px 8px rgba(59, 130, 246, 0.10);
-  font-size: 1.15rem;
-  outline: none;
-  overflow: visible;
-  padding:0
+  min-width: 44px;
+  height: 44px;
 }
 
-.send-button:hover:not(:disabled), .send-button:focus-visible:not(:disabled) {
-  filter: brightness(1.15);
-  box-shadow: 0 4px 16px rgba(59, 130, 246, 0.18);
-  transform: scale(1.08);
+.send-button:hover:not(:disabled) {
+  background: #2563eb;
+  transform: scale(1.05);
 }
 
 .send-button:active:not(:disabled) {
-  filter: brightness(0.95);
-  transform: scale(0.98);
+  transform: scale(0.95);
 }
 
 .send-button:disabled {
   opacity: 0.5;
   cursor: not-allowed;
-  filter: grayscale(0.3);
-  box-shadow: none;
   transform: none;
 }
 
-.dark .send-button {
-  background: linear-gradient(90deg, #2563eb 0%, #6366f1 100%);
-  color: #f9fafb;
-  box-shadow: 0 2px 8px rgba(99, 102, 241, 0.13);
+.send-icon {
+  width: 20px;
+  height: 20px;
 }
 
 @keyframes fadeIn {
-  from { opacity: 0; transform: translateY(10px); }
-  to { opacity: 1; transform: translateY(0); }
+  from {
+    opacity: 0;
+    transform: translateY(10px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
 }
 
 @keyframes typing {
-  0%, 60%, 100% { transform: translateY(0); }
-  30% { transform: translateY(-10px); }
-}
-
-.send-icon {
-  width: 28px;
-  height: 18px;
-  display: block;
-  margin: 0 auto;
-}
-
-/* Markdown Content Styles */
-.message.assistant .message-content :deep(h1),
-.message.assistant .message-content :deep(h2),
-.message.assistant .message-content :deep(h3),
-.message.assistant .message-content :deep(h4),
-.message.assistant .message-content :deep(h5),
-.message.assistant .message-content :deep(h6) {
-  margin: 0.5rem 0 0.25rem 0;
-  font-weight: 600;
-  line-height: 1.3;
-}
-
-.message.assistant .message-content :deep(h1) { font-size: 1.5rem; }
-.message.assistant .message-content :deep(h2) { font-size: 1.25rem; }
-.message.assistant .message-content :deep(h3) { font-size: 1.125rem; }
-.message.assistant .message-content :deep(h4) { font-size: 1rem; }
-
-.message.assistant .message-content :deep(p) {
-  margin: 0.5rem 0;
-  line-height: 1.6;
-}
-
-.message.assistant .message-content :deep(ul),
-.message.assistant .message-content :deep(ol) {
-  margin: 0.5rem 0;
-  padding-left: 1.5rem;
-}
-
-.message.assistant .message-content :deep(li) {
-  margin: 0.25rem 0;
-  line-height: 1.5;
-}
-
-.message.assistant .message-content :deep(blockquote) {
-  margin: 0.5rem 0;
-  padding: 0.5rem 1rem;
-  border-left: 3px solid #3b82f6;
-  background: rgba(59, 130, 246, 0.05);
-  border-radius: 0 4px 4px 0;
-}
-
-.dark .message.assistant .message-content :deep(blockquote) {
-  background: rgba(59, 130, 246, 0.1);
-}
-
-.message.assistant .message-content :deep(code) {
-  background: rgba(0, 0, 0, 0.1);
-  padding: 0.125rem 0.25rem;
-  border-radius: 3px;
-  font-family: 'Monaco', 'Menlo', 'Ubuntu Mono', monospace;
-  font-size: 0.875rem;
-}
-
-.dark .message.assistant .message-content :deep(code) {
-  background: rgba(255, 255, 255, 0.1);
-}
-
-.message.assistant .message-content :deep(pre) {
-  background: rgba(0, 0, 0, 0.05);
-  padding: 0.75rem;
-  border-radius: 6px;
-  overflow-x: auto;
-  margin: 0.5rem 0;
-  border: 1px solid rgba(0, 0, 0, 0.1);
-}
-
-.dark .message.assistant .message-content :deep(pre) {
-  background: rgba(255, 255, 255, 0.05);
-  border-color: rgba(255, 255, 255, 0.1);
-}
-
-.message.assistant .message-content :deep(pre code) {
-  background: none;
-  padding: 0;
-}
-
-.message.assistant .message-content :deep(a) {
-  color: #3b82f6;
-  text-decoration: none;
-}
-
-.message.assistant .message-content :deep(a:hover) {
-  text-decoration: underline;
-}
-
-.message.assistant .message-content :deep(strong) {
-  font-weight: 600;
-}
-
-.message.assistant .message-content :deep(em) {
-  font-style: italic;
-}
-
-.message.assistant .message-content :deep(hr) {
-  border: none;
-  border-top: 1px solid rgba(0, 0, 0, 0.1);
-  margin: 1rem 0;
-}
-
-.dark .message.assistant .message-content :deep(hr) {
-  border-top-color: rgba(255, 255, 255, 0.1);
-}
-
-/* Source link styling for converted results */
-.message.assistant .message-content :deep(.source-link) {
-  font-size: 0.875rem;
-  color: #6b7280;
-  margin-bottom: 0.5rem;
-  display: block;
-}
-
-.dark .message.assistant .message-content :deep(.source-link) {
-  color: #9ca3af;
+  0%, 80%, 100% {
+    transform: scale(0.8);
+    opacity: 0.5;
+  }
+  40% {
+    transform: scale(1);
+    opacity: 1;
+  }
 }
 </style>

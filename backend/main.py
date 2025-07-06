@@ -470,6 +470,9 @@ def format_urls_in_text(text):
 
 @app.post("/chat")
 async def chat(req: ChatRequest):
+    print(f"[DEBUG] Received request with lang: {req.lang}")
+    print(f"[DEBUG] Request message: {req.message}")
+    
     persona = PersonaConfig(
         name=req.traits.name,
         age=req.traits.age,
@@ -512,12 +515,22 @@ async def chat(req: ChatRequest):
     if isinstance(tools_context, str) and tools_context.startswith("Error:"):
         # MCP unavailable: skip tool logic, answer as LLM-only
         tools_context = "No tools available"
+    
+    # Initialize language variables
+    lang_code = "en"  # default
     lang_instruction = ""
+    
     if req.lang:
         lang_code = req.lang.split('-')[0]
         lang_instruction = f"CRITICAL: You MUST respond in the user's language (code: {lang_code}) ONLY. Do not use any other language."
+        print(f"[DEBUG] Language set to: {lang_code}")
+        print(f"[DEBUG] Language instruction: {lang_instruction}")
+    else:
+        print("[DEBUG] No language specified in request")
     
-    print(f"[DEBUG] lang_instruction: {lang_instruction}")
+    print(f"[DEBUG] Final lang_code: {lang_code}")
+    print(f"[DEBUG] Final lang_instruction: {lang_instruction}")
+    
     # Instructions for tool selection stage
     tool_selection_instructions = (
         f"{lang_instruction}\n"
@@ -537,11 +550,17 @@ async def chat(req: ChatRequest):
     # Instructions for final answer generation (after tool results)
     final_answer_instructions = (
         f"{lang_instruction}\n"
-        f"CRITICAL: You MUST respond in the user's language (code: {lang_code}) ONLY. Do not use any other language.\n"
         "Provide clear, natural language answers to user questions.\n"
         "RESPONSE FORMAT INSTRUCTIONS:\n"
         "When providing final answers to users:\n"
         "- Write in clear, natural language ONLY\n"
+        "- Format your response in Markdown for better readability\n"
+        "- Use **bold** for emphasis, *italic* for subtle emphasis\n"
+        "- Use bullet points (- or *) for lists\n"
+        "- Use numbered lists (1. 2. 3.) for steps or sequences\n"
+        "- Use `code` for technical terms, file names, or commands\n"
+        "- Use ```code blocks``` for longer code examples\n"
+        "- Use > for blockquotes when citing or emphasizing important information\n"
         "- Do NOT mention which tools were used\n"
         "- Do NOT show any JSON, arrays, or structured data\n"
         "- Do NOT include tool call syntax or examples\n"
@@ -557,6 +576,7 @@ async def chat(req: ChatRequest):
         "- If there was an error, explain what went wrong and suggest alternatives\n"
         "- NEVER include any JSON, even if it's part of the tool's internal process\n"
         "- If you see a number that looks like a UNIX timestamp (e.g., 10 or more digits, likely in seconds since 1970), always convert it to a human-readable date in your response.\n"
+        "- When users ask about projects, repositories, or documentation, and if the project has DeepWiki documentation available, include the DeepWiki link in format: [DeepWiki Documentation](https://deepwiki.com/owner/repo). Only include this link if you know the project has DeepWiki documentation.\n"
     )
     print(f"[DEBUG] Tools:\n{tools_context}")
 

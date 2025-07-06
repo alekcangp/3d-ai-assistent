@@ -179,10 +179,21 @@ async function sendToIOIntel(message: string) {
     .filter(m => m.role && typeof m.content === 'string')
     .map(m => ({ role: m.role, content: m.content }))
     .slice(-5)
-  // Always use the selected language from personalityConfig.lang
-  let langToSend = personalityConfig.value.lang
-  if (!langToSend || langToSend === 'system') langToSend = navigator.language
+  
+  // Use selectedLang.value as primary source, personalityConfig.value.lang as fallback
+  let langToSend = selectedLang.value || personalityConfig.value.lang
+  console.log('[DEBUG] Initial langToSend:', langToSend)
+  console.log('[DEBUG] selectedLang.value:', selectedLang.value)
+  console.log('[DEBUG] personalityConfig.value.lang:', personalityConfig.value.lang)
+  
+  if (!langToSend || langToSend === 'system') {
+    langToSend = navigator.language
+    console.log('[DEBUG] Using navigator.language:', langToSend)
+  }
+  
   if (langToSend.includes('-')) langToSend = langToSend.split('-')[0] // Normalize to 'ru', 'en', etc.
+  console.log('[DEBUG] Final langToSend after normalization:', langToSend)
+  
   // Exclude 'lang' from traits
   const { lang, ...traitsWithoutLang } = personalityConfig.value
   const res = await fetch(`${API_URL}/chat`, {
@@ -355,15 +366,22 @@ onMounted(async () => {
   if (savedMcpServer === undefined || savedMcpServer === '') savedMcpServer = null
   selectedMcpServer.value = savedMcpServer
 
-  // Load selectedLang
+  // Load selectedLang and set it in personalityConfig
   const lang = await loadFromStorage('selectedLang')
+  console.log('[DEBUG] Loaded lang from storage:', lang)
   if (lang) {
     selectedLang.value = lang
     personalityConfig.value.lang = lang
+    console.log('[DEBUG] Set selectedLang.value to:', selectedLang.value)
+    console.log('[DEBUG] Set personalityConfig.value.lang to:', personalityConfig.value.lang)
   } else {
     selectedLang.value = 'system'
     personalityConfig.value.lang = 'system'
+    console.log('[DEBUG] Set to system default')
   }
+  
+  // Save the updated personalityConfig with the correct lang
+  saveToStorage('personalityConfig', personalityConfig.value)
 
   // Fetch models and set default to second model if first load
   try {
@@ -455,11 +473,28 @@ function onUpdateLang(lang: string) {
   personalityConfig.value.lang = lang
   saveToStorage('selectedLang', lang)
   saveToStorage('personalityConfig', personalityConfig.value)
+  console.log('[DEBUG] Language updated - selectedLang:', selectedLang.value, 'personalityConfig.lang:', personalityConfig.value.lang)
 }
 
 function getCurrentLang() {
-  let lang = personalityConfig.value.lang
-  if (!lang || lang === 'system') lang = navigator.language
+  // Use selectedLang.value as primary source
+  let lang = selectedLang.value
+  console.log('[DEBUG] getCurrentLang() - selectedLang.value:', selectedLang.value)
+  console.log('[DEBUG] getCurrentLang() - personalityConfig.lang:', personalityConfig.value.lang)
+  console.log('[DEBUG] getCurrentLang() - navigator.language:', navigator.language)
+  
+  if (!lang || lang === 'system') {
+    lang = navigator.language
+  }
+  
+  // Convert language codes for STT/TTS
+  if (lang === 'ru') {
+    lang = 'ru-RU'
+  } else if (lang === 'en') {
+    lang = 'en-US'
+  }
+  
+  console.log('[DEBUG] getCurrentLang() - returning:', lang)
   return lang
 }
 
