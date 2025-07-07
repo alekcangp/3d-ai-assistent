@@ -2,6 +2,8 @@
 
 A modern web application featuring a 3D animated AI avatar with real-time facial animation, voice controls, and intelligent chat interface. Built with Vue 3, TypeScript, Three.js, and a Python backend (FastAPI, FastMCP) with IOIntel integration.
 
+[Demo Video](https://www.loom.com/share/6a1ef2da181e4bbd83caabafde5251af?sid=87ef211c-b55b-45a1-88cb-c1a77db1da71)
+
 ## 🌟 Features
 
 ### 🤖 AI Avatar & Animation
