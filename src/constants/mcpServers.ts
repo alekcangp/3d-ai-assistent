@@ -60,7 +60,7 @@ export const mcpServers = [
     description: 'EdgeOne Pages MCP: Access EdgeOne Pages tools and integrations via Model Context Protocol (SSE endpoint).'
   }
     */
-];
+]; 
 
 export function getDefaultMcpServers() {
   return [

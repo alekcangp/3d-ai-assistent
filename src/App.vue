@@ -372,9 +372,18 @@ onMounted(async () => {
     m.content.trim() !== ''
   )
 
+  // Load user MCP servers
+  const savedUserMcp = await loadFromStorage('userMcpServers', [])
+  if (Array.isArray(savedUserMcp)) userMcpServers.value = savedUserMcp
+
   // Load saved MCP server
   let savedMcpServer = await loadFromStorage('mcpServer', null)
   if (savedMcpServer === undefined || savedMcpServer === '') savedMcpServer = null
+  // If no saved MCP server, default to Fetch
+  if (!savedMcpServer) {
+    const fetchServer = getDefaultMcpServers().find(s => s.value === 'https://remote.mcpservers.org/fetch/mcp')
+    savedMcpServer = fetchServer ? fetchServer.value : null
+  }
   selectedMcpServer.value = savedMcpServer
 
   // Load selectedLang and set it in personalityConfig
@@ -389,10 +398,6 @@ onMounted(async () => {
   
   // Save the updated personalityConfig with the correct lang
   saveToStorage('personalityConfig', personalityConfig.value)
-
-  // Load user MCP servers
-  const savedUserMcp = await loadFromStorage('userMcpServers', [])
-  if (Array.isArray(savedUserMcp)) userMcpServers.value = savedUserMcp
 
   // Fetch models and set default to second model if first load
   try {
