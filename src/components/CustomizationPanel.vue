@@ -46,10 +46,27 @@
           <div class="control-group">
             <label for="mcp-select">MCP Server</label>
             <select id="mcp-select" v-model="selectedMcp" @change="updateMcpServer">
-              <option v-for="server in mcpServers" :key="server.name" :value="server.value">{{ server.name }}</option>
+              <option v-for="server in allMcpServers" :key="server.value || server.name" :value="server.value">{{ server.name }}</option>
             </select>
-            <div class="mcp-description">{{ selectedMcpObj?.description }}</div>
+            <div class="mcp-description">{{ selectedMcpObj?.name }}</div>
           </div>
+          <div class="add-mcp-server-form">
+            <input v-model="newMcpUrl" type="text" placeholder="Add MCP server URL" />
+            <input v-model="newMcpDesc" type="text" placeholder="Name (optional)" />
+            <button @click="addUserMcpServer" type="button">Add</button>
+            <span v-if="addError" class="add-mcp-error">{{ addError }}</span>
+          </div>
+          <ul class="user-mcp-list">
+            <li v-for="server in userMcpServers" :key="server.value">
+              <span>{{ server.name }}</span>
+              <button @mousedown.stop @click.stop="removeUserMcpServer(server.value)" type="button" class="remove-mcp-btn" title="Remove this server">
+                <svg width="18" height="18" viewBox="0 0 20 20" fill="none" aria-hidden="true">
+                  <path d="M6 8v6a2 2 0 0 0 2 2h4a2 2 0 0 0 2-2V8" stroke="#fff" stroke-width="1.5"/>
+                  <path d="M9 11v3m2-3v3M4 6h12m-1 0V5a2 2 0 0 0-2-2H7a2 2 0 0 0-2 2v1" stroke="#fff" stroke-width="1.5"/>
+                </svg>
+              </button>
+            </li>
+          </ul>
         </div>
 
         <div class="customization-section">
@@ -245,7 +262,8 @@
 <script setup lang="ts">
 import { ref, watch, onMounted, computed, onBeforeUnmount } from 'vue'
 import type { AvatarConfig, PersonalityConfig } from '../types'
-import { mcpServers } from '../constants/mcpServers'
+import { getDefaultMcpServers } from '../constants/mcpServers'
+import { useLocalStorage } from '../composables/useLocalStorage'
 
 const props = defineProps<{
   avatarConfig: AvatarConfig
@@ -285,8 +303,8 @@ const modelList = ref<{id: string, name: string, description: string}[]>([])
 const modelLoading = ref(false)
 const modelError = ref('')
 
-const selectedMcp = ref(props.selectedMcpServer ?? mcpServers[0].value)
-const selectedMcpObj = computed(() => mcpServers.find(s => s.value === selectedMcp.value))
+const { saveToStorage, loadFromStorage } = useLocalStorage()
+const userMcpServers = ref<{ name: string, value: string, description?: string }[]>([])
 
 const panelRef = ref<HTMLElement | null>(null)
 
@@ -343,6 +361,21 @@ onMounted(async () => {
     modelLoading.value = false
   }
 })
+
+// Load user MCP servers from storage on mount
+onMounted(async () => {
+  const saved = await loadFromStorage('userMcpServers', [])
+  if (Array.isArray(saved)) userMcpServers.value = saved
+})
+
+// Merge default and user servers for selection
+const allMcpServers = computed(() => [
+  ...getDefaultMcpServers(),
+  ...userMcpServers.value
+])
+
+const selectedMcp = ref(props.selectedMcpServer ?? allMcpServers.value[0]?.value)
+const selectedMcpObj = computed(() => allMcpServers.value.find(s => s.value === selectedMcp.value))
 
 // Watch for prop changes to restore local state when modal is reopened
 watch(
@@ -504,6 +537,41 @@ onMounted(() => {
 onBeforeUnmount(() => {
   window.removeEventListener('mousedown', handleClickOutsideMcpInfo);
 });
+
+// Add MCP server form state
+const newMcpUrl = ref('')
+const newMcpDesc = ref('')
+const addError = ref('')
+
+function addUserMcpServer() {
+  addError.value = ''
+  const url = newMcpUrl.value.trim()
+  if (!url) {
+    addError.value = 'URL is required.'
+    return
+  }
+  if (allMcpServers.value.some(s => s.value === url)) {
+    addError.value = 'This server is already in the list.'
+    return
+  }
+  userMcpServers.value.push({
+    name: newMcpDesc.value?.trim() || url,
+    value: url
+  })
+  saveToStorage('userMcpServers', userMcpServers.value)
+  newMcpUrl.value = ''
+  newMcpDesc.value = ''
+}
+
+function removeUserMcpServer(url: string) {
+  userMcpServers.value = userMcpServers.value.filter(s => s.value !== url)
+  saveToStorage('userMcpServers', userMcpServers.value)
+  // If the removed server was selected, reset selection
+  if (selectedMcp.value === url) {
+    selectedMcp.value = allMcpServers.value[0]?.value || null
+    updateMcpServer()
+  }
+}
 </script>
 
 <style scoped>
@@ -840,5 +908,66 @@ onBeforeUnmount(() => {
   background: #374151;
   color: #f9fafb;
   border-color: #4b5563;
+}
+
+.add-mcp-server-form {
+  display: flex;
+  gap: 0.5rem;
+  margin-top: 0.5rem;
+}
+.add-mcp-server-form input {
+  flex: 1;
+  padding: 0.4rem 0.6rem;
+  border-radius: 6px;
+  border: 1px solid #d1d5db;
+}
+.add-mcp-server-form button {
+  padding: 0.4rem 1rem;
+  border-radius: 6px;
+  background: #3b82f6;
+  color: #fff;
+  border: none;
+  cursor: pointer;
+}
+.add-mcp-error {
+  color: #e11d48;
+  margin-left: 0.5rem;
+  font-size: 0.95em;
+}
+.user-mcp-list {
+  list-style: none;
+  padding: 0;
+  margin: 0.5rem 0 0 0;
+}
+.user-mcp-list li {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  font-size: 0.95em;
+  margin-bottom: 0.25rem;
+}
+.remove-mcp-btn {
+  background: #e11d48;
+  color: #fff;
+  border: none;
+  border-radius: 4px;
+  padding: 0.2rem 0.7rem;
+  cursor: pointer;
+  font-size: 0.9em;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: background 0.15s;
+  min-width: 32px;
+  min-height: 32px;
+  line-height: 1;
+  box-shadow: 0 1px 2px rgba(0,0,0,0.04);
+}
+.remove-mcp-btn:hover, .remove-mcp-btn:focus {
+  background: #be123c;
+}
+.remove-mcp-btn svg {
+  display: block;
+  pointer-events: none;
 }
 </style>

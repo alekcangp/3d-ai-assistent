@@ -63,6 +63,8 @@
         :selectedLang="selectedLang"
         :selectedMcpServer="selectedMcpServer"
         :selectedModel="selectedModel"
+        :userMcpServers="userMcpServers"
+        :allMcpServers="allMcpServers"
         @updateAvatar="updateAvatarConfig"
         @updatePersonality="updatePersonalityConfig"
         @close="toggleCustomization"
@@ -78,7 +80,7 @@
 </template>
 
 <script setup lang="ts">
-import { ref, onMounted, watch } from 'vue'
+import { ref, onMounted, watch, computed } from 'vue'
 import Header from './components/Header.vue'
 import AvatarCanvas from './components/AvatarCanvas.vue'
 import ChatInterface from './components/ChatInterface.vue'
@@ -90,6 +92,7 @@ import { useAI } from './composables/useAI'
 import { useSpeech, speechAmplitude } from './composables/useSpeech'
 import type { AvatarConfig, PersonalityConfig, Message } from './types'
 import gsap from 'gsap'
+import { getDefaultMcpServers } from './constants/mcpServers'
 
 // Reactive state
 const isDarkMode = ref(false)
@@ -152,6 +155,13 @@ const { startListening, stopListening, speak, stopSpeaking } = useSpeech()
 
 // Add at the top of the script setup
 const API_URL = (import.meta.env.VITE_BACKEND_URL || "http://localhost:8000").replace(/\/$/, '')
+
+// User MCP servers state
+const userMcpServers = ref<{ name: string, value: string, description?: string }[]>([])
+const allMcpServers = computed(() => [
+  ...getDefaultMcpServers(),
+  ...userMcpServers.value
+])
 
 // Methods
 const toggleTheme = () => {
@@ -380,6 +390,10 @@ onMounted(async () => {
   // Save the updated personalityConfig with the correct lang
   saveToStorage('personalityConfig', personalityConfig.value)
 
+  // Load user MCP servers
+  const savedUserMcp = await loadFromStorage('userMcpServers', [])
+  if (Array.isArray(savedUserMcp)) userMcpServers.value = savedUserMcp
+
   // Fetch models and set default to second model if first load
   try {
     loadingProgress.value = 10
@@ -452,10 +466,7 @@ watch([isSpeaking, speechAmplitude], ([speaking, amplitude]) => {
 // When opening settings, sync selected MCP server to panel
 watch(showCustomization, (open) => {
   if (open) {
-    // Force CustomizationPanel to use the current selected MCP server
-    // (relies on v-if recreating the component)
-    // No-op here, but ensures the prop is up to date
-    // If you want to be extra sure, you could emit an event or use a key binding
+    // No-op, but ensures prop is up to date
   }
 })
 

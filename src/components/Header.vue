@@ -89,7 +89,8 @@
 
 <script setup lang="ts">
 import { defineProps, defineEmits, computed, ref, watch, onMounted, onUnmounted } from 'vue'
-import { mcpServers } from '../constants/mcpServers'
+import { getDefaultMcpServers } from '../constants/mcpServers'
+import { useLocalStorage } from '../composables/useLocalStorage'
 import { marked } from 'marked'
 marked.setOptions({ breaks: true, gfm: true })
 
@@ -110,12 +111,6 @@ const props = defineProps({
   }
 })
 const emit = defineEmits(['toggleTheme', 'toggleCustomization', 'updateLang', 'toggleOnline'])
-
-const selectedMcpServerName = computed(() => {
-  if (!props.selectedMcpServer) return 'LLM only'
-  const found = mcpServers.find(s => s.value === props.selectedMcpServer)
-  return found ? found.name : props.selectedMcpServer
-})
 
 // Tools modal state
 const showToolsModal = ref(false)
@@ -168,7 +163,18 @@ const toolsHtml = computed(() => tools.value ? marked.parse(tools.value) : '')
 
 let keepAliveInterval: number | undefined
 
-onMounted(() => {
+// Merge default and user MCP servers for display
+const { loadFromStorage } = useLocalStorage()
+const userMcpServers = ref<{ name: string, value: string }[]>([])
+const allMcpServers = computed(() => [
+  ...getDefaultMcpServers(),
+  ...userMcpServers.value
+])
+
+onMounted(async () => {
+  const saved = await loadFromStorage('userMcpServers', [])
+  if (Array.isArray(saved)) userMcpServers.value = saved
+
   // Periodically fetch /models every 10 minutes to keep backend awake
   const API_URL = (import.meta.env.VITE_BACKEND_URL || 'http://localhost:8000').replace(/\/$/, '')
   keepAliveInterval = window.setInterval(async () => {
@@ -182,6 +188,13 @@ onMounted(() => {
 
 onUnmounted(() => {
   if (keepAliveInterval) clearInterval(keepAliveInterval)
+})
+
+// Merge default and user MCP servers for display
+const selectedMcpServerName = computed(() => {
+  if (!props.selectedMcpServer) return 'LLM only'
+  const found = allMcpServers.value.find(s => s.value === props.selectedMcpServer)
+  return found ? found.name : props.selectedMcpServer
 })
 </script>
 

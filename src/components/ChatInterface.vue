@@ -236,7 +236,7 @@ function cleanMarkdown(text: string): string {
 .chat-interface {
   display: flex;
   flex-direction: column;
-  height: calc(100vh - 200px);
+  height: calc(100vh - 238px);
   max-height: calc(100vh - 200px);
 }
 

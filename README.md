@@ -181,6 +181,24 @@ Connect to external tools:
 - **Cloudflare Docs**: Developer resources
 - **Semgrep**: Code analysis tools
 
+## 🛰️ MCP Servers
+This project supports integration with **MCP (Model Context Protocol) servers** to enable external tool usage and advanced data retrieval. MCP servers allow the AI assistant to access external APIs, perform web searches, fetch documentation, and more, by calling tools defined on the MCP server.
+
+### How MCP Servers Are Used
+- When you select or specify an MCP server in the app, the backend will connect to that server to list available tools and call them as needed.
+- If no MCP server is specified, the assistant will use LLM-only mode (no external tools).
+
+### Example Public MCP Servers
+- You can use your own MCP server or connect to public ones (if available). Example:
+  - `https://mcp.api.coingecko.com/sse` (for CoinGeko tools)
+  - `https://mcp.deepwiki.com/mcp` (for DeepWiki documentation)
+  - (Replace with your own or other public MCP endpoints as needed)
+
+### Adding/Changing MCP Servers
+- In the app UI, go to the settings or server selection panel and enter the MCP server URL.
+- The backend will fetch available tools from the specified server and make them available for tool calls.
+
+
 ## 🛠 Development
 
 ### Project Structure
@@ -206,4 +224,5 @@ This project is licensed under the MIT License - see the [LICENSE](LICENSE) file
 
 - **[IOIntel](https://iointel.ai)** for advanced AI model integration
 - **[MCP Protocol](https://modelcontextprotocol.io)** for external tool integration
+
 
