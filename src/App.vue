@@ -540,18 +540,18 @@ const resetChat = () => {
   min-width: 0;
   box-sizing: border-box;
   overflow-x: hidden;
+  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+}
+
+.dark :global(body), .dark :global(#app) {
+  background: linear-gradient(135deg, #2D3748 0%, #1A202C 100%);
 }
 
 .main-content {
   min-height: calc(100vh - 80px);
-  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
   transition: all 0.3s ease;
   width: 100%;
   min-width: 0;
-}
-
-.dark .main-content {
-  background: linear-gradient(135deg, #2D3748 0%, #1A202C 100%);
 }
 
 .app-container {
