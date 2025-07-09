@@ -690,5 +690,30 @@ const resetChat = () => {
     flex-direction: column;
     align-items: center;
   }
+  .chat-section {
+    overflow-x: hidden;
+    max-width: 100%;
+    width: 100%;
+    box-sizing: border-box;
+    padding-left: 10px;
+    padding-right: 10px;
+  }
+  .chat-section * {
+    box-sizing: border-box;
+    word-break: break-word;
+    overflow-wrap: anywhere;
+  }
+  .chat-section .message, .chat-section .assistant-message {
+    margin-left: 4px;
+    margin-right: 4px;
+    padding-left: 8px;
+    padding-right: 8px;
+  }
+  .chat-section button {
+    margin-left: 2px;
+    margin-right: 2px;
+    padding-left: 8px;
+    padding-right: 8px;
+  }
 }
 </style>
