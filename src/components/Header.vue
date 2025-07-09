@@ -14,26 +14,6 @@
       <div class="scanner-bar"></div>
       
       <div class="header-controls">
-        <div class="mcp-status">
-          <span class="mcp-label"></span>
-          <span :class="['mcp-indicator', props.selectedMcpServer ? 'mcp-indicator--on' : 'mcp-indicator--off']"></span>
-          <span class="mcp-value">
-            {{ selectedMcpServerName }}
-          </span>
-        </div>
-        
-        <!-- Tools Button -->
-        <button 
-          v-if="props.selectedMcpServer"
-          class="control-btn"
-          @click="showToolsModal = true"
-          title="View Available Tools"
-        >
-          <svg width="20" height="20" viewBox="0 0 24 24" fill="currentColor">
-            <path d="M22.7 19l-9.1-9.1c.9-2.3.4-5-1.5-6.9-2-2-5-2.4-7.4-1.3L9 6 6 9 1.6 4.7C.4 7.1.9 10.1 2.9 12.1c1.9 1.9 4.6 2.4 6.9 1.5l9.1 9.1c.4.4 1 .4 1.4 0l2.3-2.3c.5-.4.5-1.1.1-1.4z"/>
-          </svg>
-        </button>
-        
         <button 
           class="control-btn"
           @click="$emit('toggleCustomization')"
@@ -89,8 +69,6 @@
 
 <script setup lang="ts">
 import { defineProps, defineEmits, computed, ref, watch, onMounted, onUnmounted } from 'vue'
-import { getDefaultMcpServers } from '../constants/mcpServers'
-import { useLocalStorage } from '../composables/useLocalStorage'
 import { marked } from 'marked'
 marked.setOptions({ breaks: true, gfm: true })
 
@@ -163,18 +141,7 @@ const toolsHtml = computed(() => tools.value ? marked.parse(tools.value) : '')
 
 let keepAliveInterval: number | undefined
 
-// Merge default and user MCP servers for display
-const { loadFromStorage } = useLocalStorage()
-const userMcpServers = ref<{ name: string, value: string }[]>([])
-const allMcpServers = computed(() => [
-  ...getDefaultMcpServers(),
-  ...userMcpServers.value
-])
-
 onMounted(async () => {
-  const saved = await loadFromStorage('userMcpServers', [])
-  if (Array.isArray(saved)) userMcpServers.value = saved
-
   // Periodically fetch /models every 10 minutes to keep backend awake
   const API_URL = (import.meta.env.VITE_BACKEND_URL || 'http://localhost:8000').replace(/\/$/, '')
   keepAliveInterval = window.setInterval(async () => {
@@ -188,13 +155,6 @@ onMounted(async () => {
 
 onUnmounted(() => {
   if (keepAliveInterval) clearInterval(keepAliveInterval)
-})
-
-// Merge default and user MCP servers for display
-const selectedMcpServerName = computed(() => {
-  if (!props.selectedMcpServer) return 'LLM only'
-  const found = allMcpServers.value.find(s => s.value === props.selectedMcpServer)
-  return found ? found.name : props.selectedMcpServer
 })
 </script>
 

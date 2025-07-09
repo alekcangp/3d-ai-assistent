@@ -101,7 +101,6 @@ export function useSpeech() {
 
       // Wait for voices to be loaded
       const voices = await getVoicesAsync()
-      console.log('[DEBUG] Available voices:', voices.map(v => `${v.name} (${v.lang})`))
       
       // Prefer a voice that matches the requested language
       let preferredVoice = voices.find(voice => voice.lang === lang && (voice.name.includes('Natural') || voice.name.includes('Enhanced') || voice.name.includes('Premium')))
@@ -112,12 +111,6 @@ export function useSpeech() {
       
       if (preferredVoice) {
         utterance.voice = preferredVoice
-        console.log('[DEBUG] Selected voice:', preferredVoice.name, 'for language:', lang)
-      } else {
-        console.warn('[DEBUG] No suitable voice found for language:', lang)
-        if (lang !== 'en-US') {
-          console.warn('No voice found for the selected language (' + lang + '). Please install a Russian voice in your system settings.')
-        }
       }
 
       if (onBoundary) {

@@ -347,8 +347,8 @@ let isFirstLoad = true
 
 // Initialize app
 onMounted(async () => {
-  // Load saved settings
-  const savedTheme = await loadFromStorage('theme', 'light')
+  // Load saved theme, default to dark
+  const savedTheme = await loadFromStorage('theme', 'dark')
   isDarkMode.value = savedTheme === 'dark'
   
   const savedAvatarConfig = await loadFromStorage('avatarConfig', defaultAvatarConfig)
@@ -650,7 +650,6 @@ const resetChat = () => {
     grid-template-columns: 1fr;
     gap: 1.5rem;
   }
-  
   .chat-section {
     order: -1;
   }

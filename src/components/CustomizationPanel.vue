@@ -37,9 +37,21 @@
                 <path d="M10 7.5a1 1 0 1 0 0-2 1 1 0 0 0 0 2zm-1 2.25c0-.414.336-.75.75-.75h.5c.414 0 .75.336.75.75v4c0 .414-.336.75-.75.75h-.5a.75.75 0 0 1-.75-.75v-4z" fill="#6b7280"/>
               </svg>
             </button>
+            <button class="mcp-tools-btn" @click="toggleToolsTooltip" title="View Available Tools" type="button">
+              <svg width="20" height="20" viewBox="0 0 24 24" fill="currentColor">
+                <path d="M22.7 19l-9.1-9.1c.9-2.3.4-5-1.5-6.9-2-2-5-2.4-7.4-1.3L9 6 6 9 1.6 4.7C.4 7.1.9 10.1 2.9 12.1c1.9 1.9 4.6 2.4 6.9 1.5l9.1 9.1c.4.4 1 .4 1.4 0l2.3-2.3c.5-.4.5-1.1.1-1.4z"/>
+              </svg>
+            </button>
             <transition name="fade">
               <div v-if="showMcpInfo" class="mcp-info-tooltip" role="tooltip">
                 The Model Context Protocol (MCP) is an open standard that enables AI assistants to securely connect to external data sources and tools.
+              </div>
+            </transition>
+            <transition name="fade">
+              <div v-if="showToolsTooltip" class="mcp-tools-tooltip" role="tooltip">
+                <div v-if="loading" class="loading"><div class="spinner"></div>Loading tools...</div>
+                <div v-else-if="error" class="error">{{ error }}</div>
+                <div v-else v-html="toolsHtml"></div>
               </div>
             </transition>
           </div>
@@ -264,6 +276,7 @@ import { ref, watch, onMounted, computed, onBeforeUnmount } from 'vue'
 import type { AvatarConfig, PersonalityConfig } from '../types'
 import { getDefaultMcpServers } from '../constants/mcpServers'
 import { useLocalStorage } from '../composables/useLocalStorage'
+import { marked } from 'marked'
 
 const props = defineProps<{
   avatarConfig: AvatarConfig
@@ -309,6 +322,10 @@ const userMcpServers = ref<{ name: string, value: string, description?: string }
 const panelRef = ref<HTMLElement | null>(null)
 
 const showMcpInfo = ref(false)
+const showToolsTooltip = ref(false)
+const tools = ref('')
+const loading = ref(false)
+const error = ref('')
 
 const localSelectedLang = ref(props.selectedLang)
 
@@ -570,6 +587,59 @@ function removeUserMcpServer(url: string) {
   if (selectedMcp.value === url) {
     selectedMcp.value = allMcpServers.value[0]?.value || null
     updateMcpServer()
+  }
+}
+
+const toolsHtml = computed(() => tools.value ? marked.parse(tools.value) : '')
+
+function toggleToolsTooltip() {
+  showToolsTooltip.value = !showToolsTooltip.value
+  if (showToolsTooltip.value && selectedMcp.value) {
+    fetchTools()
+  }
+}
+
+// Hide tooltip when clicking outside
+function handleClickOutsideToolsTooltip(event: MouseEvent) {
+  const btn = document.querySelector('.mcp-tools-btn');
+  const tooltip = document.querySelector('.mcp-tools-tooltip');
+  if (
+    showToolsTooltip.value &&
+    tooltip &&
+    !tooltip.contains(event.target as Node) &&
+    btn &&
+    !btn.contains(event.target as Node)
+  ) {
+    showToolsTooltip.value = false;
+  }
+}
+
+onMounted(() => {
+  window.addEventListener('mousedown', handleClickOutsideToolsTooltip);
+});
+onBeforeUnmount(() => {
+  window.removeEventListener('mousedown', handleClickOutsideToolsTooltip);
+});
+
+async function fetchTools() {
+  if (!selectedMcp.value) return
+  loading.value = true
+  error.value = ''
+  tools.value = ''
+  try {
+    const API_URL = (import.meta.env.VITE_BACKEND_URL || "http://localhost:8000").replace(/\/$/, '')
+    const url = `${API_URL}/mcp-tools?mcp_url=${encodeURIComponent(selectedMcp.value)}`
+    const response = await fetch(url)
+    const data = await response.json()
+    if (data.tools && !data.tools.startsWith('Error:')) {
+      tools.value = data.tools
+    } else {
+      error.value = data.tools || 'Failed to load tools'
+    }
+  } catch (err) {
+    error.value = 'Failed to connect to server'
+  } finally {
+    loading.value = false
   }
 }
 </script>
@@ -969,5 +1039,56 @@ function removeUserMcpServer(url: string) {
 .remove-mcp-btn svg {
   display: block;
   pointer-events: none;
+}
+
+.mcp-tools-btn {
+  background: none;
+  border: none;
+  padding: 0;
+  margin-left: 0.25rem;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  color: #6b7280;
+  height: 24px;
+  width: 24px;
+  border-radius: 50%;
+  transition: background 0.15s;
+}
+.mcp-tools-btn:focus {
+  outline: 2px solid #3b82f6;
+  outline-offset: 2px;
+}
+.mcp-tools-btn:hover, .mcp-tools-btn:focus-visible {
+  background: rgba(59, 130, 246, 0.08);
+}
+.mcp-tools-btn svg {
+  display: block;
+}
+
+.mcp-tools-tooltip {
+  position: absolute;
+  top: 130%;
+  left: 36px;
+  background: #fff;
+  color: #374151;
+  border: 1px solid #d1d5db;
+  border-radius: 10px;
+  box-shadow: 0 8px 32px rgba(0,0,0,0.13);
+  padding: 1rem 1.25rem;
+  font-size: 1rem;
+  max-width: 340px;
+  z-index: 20;
+  white-space: normal;
+  line-height: 1.5;
+  margin-top: 0.5rem;
+  animation: fadeIn 0.18s;
+  max-height: 320px;
+  overflow-y: auto;
+}
+.dark .mcp-tools-tooltip {
+  background: #374151;
+  color: #f9fafb;
+  border-color: #4b5563;
 }
 </style>
