@@ -531,10 +531,23 @@ const resetChat = () => {
 </script>
 
 <style scoped>
+:global(html), :global(body), :global(#app) {
+  height: 100%;
+  min-height: 100vh;
+  margin: 0;
+  padding: 0;
+  width: 100%;
+  min-width: 0;
+  box-sizing: border-box;
+  overflow-x: hidden;
+}
+
 .main-content {
   min-height: calc(100vh - 80px);
   background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
   transition: all 0.3s ease;
+  width: 100%;
+  min-width: 0;
 }
 
 .dark .main-content {
@@ -549,6 +562,9 @@ const resetChat = () => {
   margin: 0 auto;
   padding: 2rem;
   min-height: calc(100vh - 80px);
+  width: 100%;
+  min-width: 0;
+  box-sizing: border-box;
 }
 
 .avatar-section {
@@ -659,6 +675,20 @@ const resetChat = () => {
   .app-container {
     padding: 1rem;
     gap: 1rem;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    width: 100%;
+    min-width: 0;
+  }
+  .chat-section, .avatar-section {
+    width: 100%;
+    max-width: 400px;
+    margin: 0 auto;
+    box-sizing: border-box;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
   }
 }
 </style>
