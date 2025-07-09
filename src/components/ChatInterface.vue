@@ -72,7 +72,7 @@
           :disabled="!inputText.trim() || isProcessing"
           class="send-button"
         >
-          <svg viewBox="0 0 22 32" fill="currentColor" class="send-icon">
+          <svg viewBox="0 0 26 32" fill="currentColor" class="send-icon">
             <path d="M3,28L29,16L3,4V12L23,16L3,20V28Z" />
           </svg>
         </button>
