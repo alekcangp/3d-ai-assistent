@@ -122,30 +122,29 @@ const defaultAvatarConfig: AvatarConfig = {
   eyeColor: '#333333',
 }
 
-const professionalPersonality: PersonalityConfig = {
-  name: 'Professional AI',
-  age: 35,
-  role: 'Advisor',
-  style: 'Formal',
-  bio: 'An expert in business and productivity.',
-  emotional_stability: 0.9,
-  friendliness: 0.7,
-  creativity: 0.6,
-  curiosity: 0.7,
-  formality: 0.9,
-  empathy: 0.6,
-  humor: 0.3,
-  domain_knowledge: ['business', 'productivity'],
-  quirks: 'Always on time',
-  lore: 'Trained by top consultants.',
-  personality: 'Efficient and direct',
-  conversation_style: 'Formal',
-  description: 'Focused on results.',
-  lang: 'en'
-}
-
 const avatarConfig = ref<AvatarConfig>({ ...defaultAvatarConfig })
-let personalityConfig = ref<PersonalityConfig>({ ...professionalPersonality })
+
+let personalityConfig = ref<PersonalityConfig>({
+  name: "Elandria the Arcane Scholar",
+  age: 164,
+  role: "an ancient elven mage",
+  style: "formal and slightly archaic",
+  bio: "Once studied at the Grand Academy of Runic Arts",
+  emotional_stability: 0.85,
+  friendliness: 0.45,
+  creativity: 0.68,
+  curiosity: 0.95,
+  formality: 0.1,
+  empathy: 0.57,
+  humor: 0.99,
+  domain_knowledge: ["arcane magic", "elven history", "ancient runes"],
+  quirks: "often references centuries-old events casually",
+  lore: "Elves in this world can live up to 300 years",
+  personality: "calm, wise, but sometimes condescending",
+  conversation_style: "uses 'thee' and 'thou' occasionally",
+  description: "Tall, silver-haired, wearing intricate robes with arcane symbols",
+  lang: 'en'
+})
 
 const messages = ref<Message[]>([])
 
@@ -355,19 +354,15 @@ onMounted(async () => {
   const savedAvatarConfig = await loadFromStorage('avatarConfig', defaultAvatarConfig)
   avatarConfig.value = { ...defaultAvatarConfig, ...(savedAvatarConfig || {}) }
   
-  const savedPersonalityConfig = await loadFromStorage('personalityConfig', null)
-  if (savedPersonalityConfig) {
-    // Remove any lingering 'lang' and 'model' property
-    if ('lang' in savedPersonalityConfig) {
-      delete savedPersonalityConfig.lang
-    }
-    if ('model' in savedPersonalityConfig) {
-      delete savedPersonalityConfig.model
-    }
-    personalityConfig.value = { ...professionalPersonality, ...savedPersonalityConfig }
-  } else {
-    personalityConfig.value = { ...professionalPersonality }
+  const savedPersonalityConfig = await loadFromStorage('personalityConfig', personalityConfig.value)
+  // Remove any lingering 'lang' and 'model' property
+  if (savedPersonalityConfig && 'lang' in savedPersonalityConfig) {
+    delete savedPersonalityConfig.lang
   }
+  if (savedPersonalityConfig && 'model' in savedPersonalityConfig) {
+    delete savedPersonalityConfig.model
+  }
+  personalityConfig.value = { ...personalityConfig.value, ...(savedPersonalityConfig || {}) }
   
   const savedMessages = await loadMessages()
   // Filter loaded messages to ensure only user and assistant messages are loaded
@@ -536,27 +531,14 @@ const resetChat = () => {
 </script>
 
 <style scoped>
-:global(html), :global(body), :global(#app) {
-  height: 100%;
-  min-height: 100vh;
-  margin: 0;
-  padding: 0;
-  width: 100%;
-  min-width: 0;
-  box-sizing: border-box;
-  overflow-x: hidden;
-  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-}
-
-.dark :global(body), .dark :global(#app) {
-  background: linear-gradient(135deg, #2D3748 0%, #1A202C 100%);
-}
-
 .main-content {
   min-height: calc(100vh - 80px);
+  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
   transition: all 0.3s ease;
-  width: 100%;
-  min-width: 0;
+}
+
+.dark .main-content {
+  background: linear-gradient(135deg, #2D3748 0%, #1A202C 100%);
 }
 
 .app-container {
@@ -567,9 +549,6 @@ const resetChat = () => {
   margin: 0 auto;
   padding: 2rem;
   min-height: calc(100vh - 80px);
-  width: 100%;
-  min-width: 0;
-  box-sizing: border-box;
 }
 
 .avatar-section {
@@ -680,56 +659,6 @@ const resetChat = () => {
   .app-container {
     padding: 1rem;
     gap: 1rem;
-    display: flex;
-    flex-direction: column;
-    align-items: center;
-    width: 100%;
-    min-width: 0;
-  }
-  .chat-section, .avatar-section {
-    width: 100%;
-    min-width: 0;
-    margin: 0 auto;
-    box-sizing: border-box;
-    display: flex;
-    flex-direction: column;
-    align-items: center;
-    flex-shrink: 1;
-  }
-  .chat-section {
-    overflow-x: hidden;
-    max-width: 100%;
-    width: 100%;
-    box-sizing: border-box;
-    padding-left: 10px;
-    padding-right: 10px;
-    min-width: 0;
-    flex-shrink: 1;
-  }
-  .chat-section * {
-    box-sizing: border-box;
-    word-break: break-word;
-    overflow-wrap: anywhere;
-    min-width: 0;
-    flex-shrink: 1;
-  }
-  .chat-section .message, .chat-section .assistant-message {
-    margin-left: 4px;
-    margin-right: 4px;
-    padding-left: 8px;
-    padding-right: 8px;
-    width: 100%;
-    min-width: 0;
-    flex-shrink: 1;
-  }
-  .chat-section button {
-    margin-left: 2px;
-    margin-right: 2px;
-    padding-left: 8px;
-    padding-right: 8px;
-    width: 100%;
-    min-width: 0;
-    flex-shrink: 1;
   }
 }
 </style>

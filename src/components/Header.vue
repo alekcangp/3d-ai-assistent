@@ -69,6 +69,8 @@
 
 <script setup lang="ts">
 import { defineProps, defineEmits, computed, ref, watch, onMounted, onUnmounted } from 'vue'
+import { getDefaultMcpServers } from '../constants/mcpServers'
+import { useLocalStorage } from '../composables/useLocalStorage'
 import { marked } from 'marked'
 marked.setOptions({ breaks: true, gfm: true })
 
