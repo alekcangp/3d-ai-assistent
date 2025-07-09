@@ -179,7 +179,10 @@ const initThree = async () => {
     alpha: true,
     antialias: true 
   })
-  renderer.setSize(400, 400)
+  // Responsive: use smaller size for mobile
+  const isMobile = window.innerWidth <= 768;
+  const size = isMobile ? 200 : 300;
+  renderer.setSize(size, size)
   renderer.setPixelRatio(window.devicePixelRatio)
   renderer.outputColorSpace = THREE.SRGBColorSpace
   renderer.shadowMap.enabled = true
@@ -952,8 +955,8 @@ if (true) {
 }
 
 .avatar-canvas {
-  width: 400px;
-  height: 400px;
+  width: 550px;
+  height: 550px;
   border-radius: 20px;
   box-shadow: 0 8px 32px rgba(0, 0, 0, 0.1);
   background: linear-gradient(135deg, rgba(255, 255, 255, 0.1), rgba(255, 255, 255, 0.05));
