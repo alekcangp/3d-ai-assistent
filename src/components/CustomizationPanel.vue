@@ -60,7 +60,7 @@
             <select id="mcp-select" v-model="selectedMcp" @change="updateMcpServer">
               <option v-for="server in allMcpServers" :key="server.value || server.name" :value="server.value">{{ server.name }}</option>
             </select>
-            <div class="mcp-description">{{ selectedMcpObj?.name }}</div>
+            <div v-if="selectedMcpObj" class="mcp-description">{{ selectedMcpObj.description }}</div>
           </div>
           <div class="add-mcp-server-form">
             <input v-model="newMcpUrl" type="text" placeholder="Add MCP server URL" />
