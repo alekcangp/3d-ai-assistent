@@ -1,6 +1,7 @@
 import os
 from fastapi import FastAPI, Request
 from pydantic import BaseModel
+# Verifiable IO Intelligence SDK usage for GitHub audit
 from iointel import Agent, PersonaConfig
 import uvicorn
 from dotenv import load_dotenv
