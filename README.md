@@ -51,10 +51,43 @@ A modern web application featuring a 3D animated AI avatar with real-time facial
 
 ### Backend (Python + FastAPI)
 - **FastAPI**: High-performance async web framework
-- **IOIntel**: Advanced AI model integration
+- **IOIntel**: Advanced AI model integration for inference, providing access to multiple LLM models through a unified API
 - **FastMCP**: Model Context Protocol client for external tool integration
 - **MCP (Model Context Protocol)**: External tool integration
 - **CORS Support**: Cross-origin resource sharing
+
+### IO Intelligence Integration
+This project uses the **IO Intelligence SDK** (`iointel`) to access multiple AI models through a unified API. The integration includes:
+
+- **Direct SDK Usage**: `from iointel import Agent, PersonaConfig`
+- **API Key Configuration**: `IO_API_KEY` environment variable
+- **Model Selection**: Support for 20+ IO models including:
+  - `deepseek-ai/DeepSeek-R1-0528` - Advanced reasoning and programming
+  - `meta-llama/Llama-4-Maverick-17B-128E-Instruct-FP8` - Multimodal capabilities
+  - `Qwen/Qwen3-235B-A22B-FP8` - Large-scale language model
+  - `google/gemma-3-27b-it` - Google's open model
+  - And 15+ more models...
+
+The backend makes direct calls to IO Intelligence endpoints through the SDK for real-time AI inference.
+
+### Code Example: IO Intelligence Integration
+
+```python
+# Import IO Intelligence SDK
+from iointel import Agent, PersonaConfig
+
+# Configure AI agent with IO model
+agent = Agent(
+    name=persona.name,
+    instructions=tool_selection_instructions,
+    persona=persona,
+    model=model_name,  # e.g., "deepseek-ai/DeepSeek-R1-0528"
+    api_key=os.environ.get("IO_API_KEY")
+)
+
+# Run inference with IO Intelligence
+response = await agent.run(prompt)
+```
 
 
 ### AI Models Supported
@@ -148,7 +181,10 @@ The blueprint will create:
 
 **Backend (.env)**
 ```env
-IO_API_KEY=your_iointel_api_key
+# IO Intelligence API Key - Required for AI model access
+IO_API_KEY=your_iointel_api_key_here
+
+# Frontend URL for CORS configuration
 FRONTEND_URL=https://your-frontend.onrender.com
 ```
 
