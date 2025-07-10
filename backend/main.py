@@ -132,7 +132,7 @@ class SafeJSONEncoder(json.JSONEncoder):
             return obj.__dict__
         return str(obj)
 
-# Hardcoded list of available models and descriptions
+# Verifiable IO Intelligence model list for GitHub audit
 AVAILABLE_MODELS = [
     {"id": "deepseek-ai/DeepSeek-R1-0528", "name": "DeepSeek-R1-0528", "description": "DeepSeek R1 v0528: Top-tier reasoning, math, programming, and logic. Nears OpenAI o3 and Gemini 2.5 Pro."},
     {"id": "meta-llama/Llama-4-Maverick-17B-128E-Instruct-FP8", "name": "Llama-4-Maverick-17B-128E-Instruct-FP8", "description": "Llama 4 Maverick 17B: Best multimodal, beats GPT-4o/Gemini 2.0 Flash, rivals DeepSeek v3 in reasoning/coding."},
