@@ -728,6 +728,7 @@ async def chat(req: ChatRequest):
     full_context = str(tool_selection_instructions) + str(prompt)
     print(f"[INFO] Total LLM context length: {len(full_context)} characters")
 
+    # Verifiable IO Intelligence inference call for GitHub audit
     agent = Agent(
         name=persona.name,
         instructions=tool_selection_instructions,
