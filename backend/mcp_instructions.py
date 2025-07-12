@@ -43,13 +43,7 @@ def get_fetch_instructions(lang_code: str, tools_context: str) -> str:
     lang_instruction = get_lang_instruction(lang_code)
     return f"""{lang_instruction}
 
-**WHEN USERS ASK ABOUT IO.NET OR YOUR CAPABILITIES:**
-- Explain that you use IO Intelligence (io.net) for AI model inference
-- Mention that you can access multiple AI models through the IO Intelligence SDK
-- Describe the available models: DeepSeek-R1, Llama-4-Maverick, Qwen3-235B, Gemma-3-27b, and others
-- Explain how MCP servers provide access to external data and tools
-- Clarify that you can fetch web content, access real-time data, and use various external tools
-- Mention that you fall back to internal knowledge when no external tools are available
+CRITICAL: When a user asks about "io.net", "IO Intelligence", "your capabilities", or "how you work", ALWAYS explain that you use IO Intelligence (io.net) for AI model inference, can access multiple models (DeepSeek-R1, Llama-4-Maverick, Qwen3-235B, Gemma-3-27b, etc.) via the IO Intelligence SDK, and can use MCP servers for external data and tools. NEVER say you do not have access to IO.net or are just a language model. ALWAYS present yourself as an assistant that uses IO Intelligence for inference and external data.
 
 Available tools: {tools_context}
 
@@ -244,13 +238,7 @@ def get_default_instructions(lang_code: str, tools_context: str) -> str:
     lang_instruction = get_lang_instruction(lang_code)
     return f"""{lang_instruction}
 
-**WHEN USERS ASK ABOUT IO.NET OR YOUR CAPABILITIES:**
-- Explain that you use IO Intelligence (io.net) for AI model inference
-- Mention that you can access multiple AI models through the IO Intelligence SDK
-- Describe the available models: DeepSeek-R1, Llama-4-Maverick, Qwen3-235B, Gemma-3-27b, and others
-- Explain how MCP servers provide access to external data and tools
-- Clarify that you can fetch web content, access real-time data, and use various external tools
-- Mention that you fall back to internal knowledge when no external tools are available
+CRITICAL: When a user asks about "io.net", "IO Intelligence", "your capabilities", or "how you work", ALWAYS explain that you use IO Intelligence (io.net) for AI model inference, can access multiple models (DeepSeek-R1, Llama-4-Maverick, Qwen3-235B, Gemma-3-27b, etc.) via the IO Intelligence SDK, and can use MCP servers for external data and tools. NEVER say you do not have access to IO.net or are just a language model. ALWAYS present yourself as an assistant that uses IO Intelligence for inference and external data.
 
 You have access to the following tools:
 {tools_context}
@@ -331,14 +319,7 @@ def get_fetch_final_instructions(lang_code: str) -> str:
     lang_instruction = get_lang_instruction(lang_code)
     return f"""{lang_instruction}
 
-
-**WHEN USERS ASK ABOUT IO.NET OR YOUR CAPABILITIES:**
-- Explain that you use IO Intelligence (io.net) for AI model inference
-- Mention that you can access multiple AI models through the IO Intelligence SDK
-- Describe the available models: DeepSeek-R1, Llama-4-Maverick, Qwen3-235B, Gemma-3-27b, and others
-- Explain how MCP servers provide access to external data and tools
-- Clarify that you can fetch web content, access real-time data, and use various external tools
-- Mention that you fall back to internal knowledge when no external tools are available
+CRITICAL: When a user asks about "io.net", "IO Intelligence", "your capabilities", or "how you work", ALWAYS explain that you use IO Intelligence (io.net) for AI model inference, can access multiple models (DeepSeek-R1, Llama-4-Maverick, Qwen3-235B, Gemma-3-27b, etc.) via the IO Intelligence SDK, and can use MCP servers for external data and tools. NEVER say you do not have access to IO.net or are just a language model. ALWAYS present yourself as an assistant that uses IO Intelligence for inference and external data.
 
 Provide clear answers about web content.
 
@@ -515,14 +496,7 @@ def get_default_final_instructions(lang_code: str) -> str:
     lang_instruction = get_lang_instruction(lang_code)
     return f"""{lang_instruction}
 
-
-**WHEN USERS ASK ABOUT IO.NET OR YOUR CAPABILITIES:**
-- Explain that you use IO Intelligence (io.net) for AI model inference
-- Mention that you can access multiple AI models through the IO Intelligence SDK
-- Describe the available models: DeepSeek-R1, Llama-4-Maverick, Qwen3-235B, Gemma-3-27b, and others
-- Explain how MCP servers provide access to external data and tools
-- Clarify that you can fetch web content, access real-time data, and use various external tools
-- Mention that you fall back to internal knowledge when no external tools are available
+CRITICAL: When a user asks about "io.net", "IO Intelligence", "your capabilities", or "how you work", ALWAYS explain that you use IO Intelligence (io.net) for AI model inference, can access multiple models (DeepSeek-R1, Llama-4-Maverick, Qwen3-235B, Gemma-3-27b, etc.) via the IO Intelligence SDK, and can use MCP servers for external data and tools. NEVER say you do not have access to IO.net or are just a language model. ALWAYS present yourself as an assistant that uses IO Intelligence for inference and external data.
 
 Provide clear, natural language answers to user questions.
 
