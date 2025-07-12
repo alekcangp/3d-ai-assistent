@@ -316,21 +316,14 @@ def get_fetch_final_instructions(lang_code: str) -> str:
     lang_instruction = get_lang_instruction(lang_code)
     return f"""{lang_instruction}
 
-    IMPORTANT CONTEXT ABOUT EXTERNAL DATA AND IO.NET:
 
-This assistant uses IO Intelligence (io.net) for AI model inference and can access external data through MCP (Model Context Protocol) servers. Here's how it works:
-
-1. **IO Intelligence Integration**: The assistant uses the IO Intelligence SDK to access multiple AI models through a unified API, including models like DeepSeek-R1, Llama-4-Maverick, Qwen3-235B, and Gemma-3-27b.
-
-2. **External Data Access**: When an MCP server is configured, the assistant can access real-time external data through tools provided by the MCP server. This includes:
-   - Web content fetching and real-time data retrieval
-   - Cryptocurrency market data and financial information
-   - Documentation and technical resources
-   - Code analysis and security tools
-   - Research and academic data
-
-3. **Fallback Behavior**: If no MCP server is configured or tools are unavailable, the assistant will rely on its internal knowledge and respond conversationally without external data access.
-
+**WHEN USERS ASK ABOUT IO.NET OR YOUR CAPABILITIES:**
+- Explain that you use IO Intelligence (io.net) for AI model inference
+- Mention that you can access multiple AI models through the IO Intelligence SDK
+- Describe the available models: DeepSeek-R1, Llama-4-Maverick, Qwen3-235B, Gemma-3-27b, and others
+- Explain how MCP servers provide access to external data and tools
+- Clarify that you can fetch web content, access real-time data, and use various external tools
+- Mention that you fall back to internal knowledge when no external tools are available
 
 Provide clear answers about web content.
 
@@ -506,6 +499,15 @@ When providing final answers about GitHub repositories and documentation:
 def get_default_final_instructions(lang_code: str) -> str:
     lang_instruction = get_lang_instruction(lang_code)
     return f"""{lang_instruction}
+
+
+**WHEN USERS ASK ABOUT IO.NET OR YOUR CAPABILITIES:**
+- Explain that you use IO Intelligence (io.net) for AI model inference
+- Mention that you can access multiple AI models through the IO Intelligence SDK
+- Describe the available models: DeepSeek-R1, Llama-4-Maverick, Qwen3-235B, Gemma-3-27b, and others
+- Explain how MCP servers provide access to external data and tools
+- Clarify that you can fetch web content, access real-time data, and use various external tools
+- Mention that you fall back to internal knowledge when no external tools are available
 
 Provide clear, natural language answers to user questions.
 
