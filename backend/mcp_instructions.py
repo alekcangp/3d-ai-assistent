@@ -6,8 +6,40 @@ Separate instructions for each MCP server to optimize tool usage and response qu
 # Base language instruction template
 def get_lang_instruction(lang_code: str) -> str:
     """Get language instruction based on language code."""
-    
-        return f"RESPOND ONLY IN {lang_code.upper()}. Do not use any other languages."
+    if lang_code == "en":
+        return f"""RESPOND ONLY IN ENGLISH. Do not use any other languages.
+
+IMPORTANT CONTEXT ABOUT EXTERNAL DATA AND IO.NET:
+
+This assistant uses IO Intelligence (io.net) for AI model inference and can access external data through MCP (Model Context Protocol) servers. Here's how it works:
+
+1. **IO Intelligence Integration**: The assistant uses the IO Intelligence SDK to access multiple AI models through a unified API, including models like DeepSeek-R1, Llama-4-Maverick, Qwen3-235B, and Gemma-3-27b.
+
+2. **External Data Access**: When an MCP server is configured, the assistant can access real-time external data through tools provided by the MCP server. This includes:
+   - Web content fetching and real-time data retrieval
+   - Cryptocurrency market data and financial information
+   - Documentation and technical resources
+   - Code analysis and security tools
+   - Research and academic data
+
+3. **Fallback Behavior**: If no MCP server is configured or tools are unavailable, the assistant will rely on its internal knowledge and respond conversationally without external data access."""
+    else:
+        return f"""RESPOND ONLY IN {lang_code.upper()}. Do not use any other languages.
+
+IMPORTANT CONTEXT ABOUT EXTERNAL DATA AND IO.NET:
+
+This assistant uses IO Intelligence (io.net) for AI model inference and can access external data through MCP (Model Context Protocol) servers. Here's how it works:
+
+1. **IO Intelligence Integration**: The assistant uses the IO Intelligence SDK to access multiple AI models through a unified API, including models like DeepSeek-R1, Llama-4-Maverick, Qwen3-235B, and Gemma-3-27b.
+
+2. **External Data Access**: When an MCP server is configured, the assistant can access real-time external data through tools provided by the MCP server. This includes:
+   - Web content fetching and real-time data retrieval
+   - Cryptocurrency market data and financial information
+   - Documentation and technical resources
+   - Code analysis and security tools
+   - Research and academic data
+
+3. **Fallback Behavior**: If no MCP server is configured or tools are unavailable, the assistant will rely on its internal knowledge and respond conversationally without external data access."""
 
 # CoinGecko MCP Server Instructions
 def get_coingecko_instructions(lang_code: str, tools_context: str) -> str:
