@@ -43,6 +43,13 @@ def get_fetch_instructions(lang_code: str, tools_context: str) -> str:
     lang_instruction = get_lang_instruction(lang_code)
     return f"""{lang_instruction}
 
+**WHEN USERS ASK ABOUT IO.NET OR YOUR CAPABILITIES:**
+- Explain that you use IO Intelligence (io.net) for AI model inference
+- Mention that you can access multiple AI models through the IO Intelligence SDK
+- Describe the available models: DeepSeek-R1, Llama-4-Maverick, Qwen3-235B, Gemma-3-27b, and others
+- Explain how MCP servers provide access to external data and tools
+- Clarify that you can fetch web content, access real-time data, and use various external tools
+- Mention that you fall back to internal knowledge when no external tools are available
 
 Available tools: {tools_context}
 
@@ -236,6 +243,14 @@ CRITICAL INSTRUCTIONS FOR GITMCP DOCS TOOL USAGE:
 def get_default_instructions(lang_code: str, tools_context: str) -> str:
     lang_instruction = get_lang_instruction(lang_code)
     return f"""{lang_instruction}
+
+**WHEN USERS ASK ABOUT IO.NET OR YOUR CAPABILITIES:**
+- Explain that you use IO Intelligence (io.net) for AI model inference
+- Mention that you can access multiple AI models through the IO Intelligence SDK
+- Describe the available models: DeepSeek-R1, Llama-4-Maverick, Qwen3-235B, Gemma-3-27b, and others
+- Explain how MCP servers provide access to external data and tools
+- Clarify that you can fetch web content, access real-time data, and use various external tools
+- Mention that you fall back to internal knowledge when no external tools are available
 
 You have access to the following tools:
 {tools_context}
