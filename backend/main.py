@@ -12,68 +12,10 @@ import re
 import json
 import asyncio
 from backend.layout_tables import LAYOUTS, LANG_CHARSETS, fix_keyboard_layout, detect_charset
-try:
+
     from mcp_instructions import get_mcp_instructions, get_mcp_final_instructions
-except ImportError:
-    # Fallback to default instructions if module not found
-    def get_mcp_instructions(mcp_url: str, lang_code: str, tools_context: str) -> str:
-        lang_instruction = "RESPOND ONLY IN ENGLISH. Do not use any other languages." if lang_code == "en" else f"RESPOND ONLY IN {lang_code.upper()}. Do not use any other languages."
-        return f"""{lang_instruction}
 
-You have access to the following tools:
-{tools_context}
-
-CRITICAL INSTRUCTIONS FOR TOOL USAGE:
-
-1. ONLY use tools when the user specifically requests data, information, or functionality that requires external data.
-
-2. Do NOT use tools for: greetings, general conversation, questions about yourself, opinions, explanations, or creative writing.
-
-3. Use tools ONLY for: specific data requests, information retrieval, or functionality that requires external access.
-
-4. When using a tool, respond ONLY with a JSON object in this exact format:
-   {{"tool_call": {{"tool": "<tool_name>", "params": {{<params>}}}}}}
-
-5. Ensure ALL required parameters are provided. Do not use 'undefined' or empty values for required parameters.
-
-6. For general conversation, greetings, questions about yourself, or non-data requests, respond naturally without using any tools.
-
-7. If no tool is needed, respond naturally to the user's question.
-"""
-
-    def get_mcp_final_instructions(mcp_url: str, lang_code: str) -> str:
-        lang_instruction = "RESPOND ONLY IN ENGLISH. Do not use any other languages." if lang_code == "en" else f"RESPOND ONLY IN {lang_code.upper()}. Do not use any other languages."
-        return f"""{lang_instruction}
-
-Provide clear, natural language answers to user questions.
-
-RESPONSE FORMAT INSTRUCTIONS:
-When providing final answers to users:
-- Write in clear, natural language ONLY
-- Format your response in Markdown for better readability
-- Use **bold** for emphasis, *italic* for subtle emphasis
-- Use bullet points (- or *) for lists
-- Use numbered lists (1. 2. 3.) for steps or sequences
-- Use `code` for technical terms, file names, or commands
-- Use ```code blocks``` for longer code examples
-- Use > for blockquotes when citing or emphasizing important information
-- Do NOT mention which tools were used
-- Do NOT show any JSON, arrays, or structured data
-- Do NOT include tool call syntax or examples
-- Do NOT mention 'thoughts', 'reasoning', or internal processes
-- Do NOT show internal tracking data, thought numbers, or metadata
-- Do NOT include any JSON objects, even if they appear in tool results
-- Focus on answering the user's question directly
-- ALWAYS include relevant links from the tool results when available
-- Format links as [Description](URL) with descriptive text
-- When discussing websites, social media, or resources, ALWAYS include the actual links
-- Do not just mention that links exist - actually include them in your response
-- Present information clearly and conversationally
-- If there was an error, explain what went wrong and suggest alternatives
-- NEVER include any JSON, even if it's part of the tool's internal process
-- If you see a number that looks like a UNIX timestamp (e.g., 10 or more digits, likely in seconds since 1970), always convert it to a human-readable date in your response
-- When users ask about projects, repositories, or documentation, and if the project has DeepWiki documentation available, include the DeepWiki link in format: [DeepWiki Documentation](https://deepwiki.com/owner/repo). Only include this link if you know the project has DeepWiki documentation
-"""
+   
 
 # Load environment variables from .env if present
 load_dotenv()
@@ -701,7 +643,7 @@ async def chat(req: ChatRequest):
     
     if req.lang:
         lang_code = req.lang.split('-')[0]
-        lang_instruction = f"CRITICAL: You MUST respond in the user's language (code: {lang_code}) ONLY. Do not use any other language."
+        lang_instruction = f"IMPORTANT: You MUST respond in the user's language (code: {lang_code}) ONLY. Do not use any other language."
         #print(f"[DEBUG] Language set to: {lang_code}")
         #print(f"[DEBUG] Language instruction: {lang_instruction}")
     else:
@@ -871,7 +813,7 @@ async def chat(req: ChatRequest):
         tool_prompt = (
             prompt
             + f"\n[Tool {tool_name} result: {summarized_result_str}]\n"
-            + f"CRITICAL: You MUST respond in the user's language (code: {lang_code}) ONLY. Do not use any other language.\n"
+            + f"IMPORTANT: You MUST respond in the user's language (code: {lang_code}) ONLY. Do not use any other language.\n"
             + "Assistant: Based on the tool result above, provide a helpful answer to the user's original question. "
             + "IMPORTANT: If the tool result contains any URLs or links, you MUST include them in your response. "
             + "Format all links as [Description](URL) with descriptive text. "
