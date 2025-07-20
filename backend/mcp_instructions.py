@@ -6,8 +6,7 @@ Separate instructions for each MCP server to optimize tool usage and response qu
 # Base language instruction template
 def get_lang_instruction(lang_code: str) -> str:
     """Get language instruction based on language code."""
-    
-        return f"RESPOND ONLY IN {lang_code.upper()}. Do not use any other languages."
+    return f"RESPOND ONLY IN {lang_code.upper()}. Do not use any other languages."
 
 # CoinGecko MCP Server Instructions
 def get_coingecko_instructions(lang_code: str, tools_context: str) -> str:
