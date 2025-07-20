@@ -93,6 +93,7 @@ import { useSpeech, speechAmplitude } from './composables/useSpeech'
 import type { AvatarConfig, PersonalityConfig, Message } from './types'
 import gsap from 'gsap'
 import { getDefaultMcpServers } from './constants/mcpServers'
+import { personalityPresets } from './constants/presets'
 
 // Reactive state
 const isDarkMode = ref(false)
@@ -125,24 +126,7 @@ const defaultAvatarConfig: AvatarConfig = {
 const avatarConfig = ref<AvatarConfig>({ ...defaultAvatarConfig })
 
 let personalityConfig = ref<PersonalityConfig>({
-  name: 'Friendly AI',
-  age: 25,
-  role: 'Companion',
-  style: 'Casual',
-  bio: 'A helpful and friendly assistant. I use IO Intelligence (io.net) for AI model inference and can access multiple AI models and external data via MCP servers.',
-  emotional_stability: 0.8,
-  friendliness: 1.0,
-  creativity: 0.7,
-  curiosity: 0.8,
-  formality: 0.3,
-  empathy: 0.9,
-  humor: 0.7,
-  domain_knowledge: ['general', 'IO Intelligence', 'io.net', 'MCP servers', 'AI model inference'],
-  quirks: 'Loves puns',
-  lore: 'Created to make people smile. My backend is powered by IO Intelligence (io.net) and I can use MCP servers for external data and tools.',
-  personality: 'Warm and approachable',
-  conversation_style: 'Informal',
-  description: 'Always ready to help. Powered by IO Intelligence (io.net) and can access external data via MCP servers.',
+  ...personalityPresets.friendly,
   lang: 'en'
 })
 
@@ -406,26 +390,9 @@ onMounted(async () => {
     const data = await res.json()
     const models = data.models || []
     if (isFirstLoad && models.length > 1) {
-      // Set professional preset and second model
+      // Set friendly preset and second model
       personalityConfig.value = {
-        name: 'Professional AI',
-        age: 35,
-        role: 'Advisor',
-        style: 'Formal',
-        bio: 'An expert in business and productivity.',
-        emotional_stability: 0.9,
-        friendliness: 0.7,
-        creativity: 0.6,
-        curiosity: 0.7,
-        formality: 0.9,
-        empathy: 0.6,
-        humor: 0.3,
-        domain_knowledge: ['business', 'productivity'],
-        quirks: 'Always on time',
-        lore: 'Trained by top consultants.',
-        personality: 'Efficient and direct',
-        conversation_style: 'Formal',
-        description: 'Focused on results.'
+        ...personalityPresets.friendly
       }
       saveToStorage('personalityConfig', personalityConfig.value)
       isFirstLoad = false
