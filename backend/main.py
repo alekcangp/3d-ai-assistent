@@ -12,7 +12,7 @@ import re
 import json
 import asyncio
 from backend.layout_tables import LAYOUTS, LANG_CHARSETS, fix_keyboard_layout, detect_charset
-from mcp_instructions import get_mcp_instructions, get_mcp_final_instructions
+from .mcp_instructions import get_mcp_instructions, get_mcp_final_instructions
 
    
 
